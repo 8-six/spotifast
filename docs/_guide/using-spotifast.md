@@ -159,6 +159,12 @@ Library sidebar to start playing it. A single click still opens the row's page.
 Pointing at a row's cover art also shows a play button, but only when the
 sidebar is not in compact mode.
 
+## Playing a song from search
+
+A song picked from the search results plays on its own, and, with Autoplay on,
+Spotify continues with songs it suggests after it, as in the Spotify apps. The other results are
+not queued after it.
+
 ## Search from a launcher
 
 **In development, not included in 0.8.0:** a Spotify search link opens Search
