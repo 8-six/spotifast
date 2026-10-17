@@ -493,6 +493,15 @@ This uses the existing playback session's Connect transfer request and needs
 no additional authorization. An old or unavailable Web API playback snapshot
 does not cause the previous local song to restart or replace the remote queue.
 
+The engine prepares the next two songs of the queue while one plays, so Next
+starts the following song without waiting for it to load. For each, it reads
+the song's metadata, asks for its audio key, and fetches the first 128 KB of
+its file from Spotify's CDN, about three seconds of audio at 320 kbit/s, and
+keeps them in memory. A song already in the audio cache is not fetched again.
+Nothing is wasted when the song then plays: its load uses all three.
+Skipping further than two songs ahead loads the song as before. These
+requests go through the playback session and use no Web API quota.
+
 When the PulseAudio backend is selected on Linux, its PulseAudio or PipeWire
 stream is named **Spotifast**, with **Spotify playback** as its description, so
 system mixers and audio processors can identify and route it. Explicit

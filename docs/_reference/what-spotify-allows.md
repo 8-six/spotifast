@@ -118,7 +118,8 @@ API where it has an answer, and otherwise leaves out what it could not read.
 librespot provides:
 
 - Spotify catalogue playback at up to 320 kbps.
-- Gapless playback, normalisation, and a local audio cache.
+- Gapless playback, normalisation, and a local audio cache. Spotifast's fork
+  also prepares the start of the next two songs, so a skip plays at once.
 - Spotify Connect, so another Spotify client can transfer playback to this
   computer.
 - Shuffle, repeat, seek, and volume.
