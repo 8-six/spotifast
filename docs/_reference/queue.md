@@ -39,7 +39,13 @@ waiting for local playback to reconnect keeps the song chosen at the click.
 
 Sorted and filtered views omit unavailable songs and local files from their
 playback requests. The displayed rows keep their positions, and selecting a
-repeated song starts that occurrence. A filtered playlist or Liked Songs view
+repeated song starts that occurrence. In a playlist's original order, a song
+that appears more than once among the loaded rows starts at the chosen copy's
+playlist position, provided the rows load from the beginning and no missing
+or local entry comes before it; otherwise it starts by name, which plays the
+first copy. A song started from a row marks only that row as playing and
+loading; other copies in the same list look like ordinary rows until another
+song plays. A filtered playlist or Liked Songs view
 plays its matching songs in displayed order, including duplicates. An empty or entirely
 unplayable view disables Play instead of starting the unfiltered context.
 
