@@ -319,6 +319,8 @@ release, then choose when to restart and install it. Settings can enable
 automatic background downloads; restarting always waits for your click.
 Closing the update window keeps a download running. You can also check for a
 new release from Settings, or on macOS from the application menu.
+**Release notes** in **Settings > About** opens the GitHub release page of
+the version you are running, to read what changed.
 
 Spotifast checks each download before installing it. An interrupted or damaged
 download leaves the running app alone, and a failed startup restores the

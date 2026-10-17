@@ -61,6 +61,13 @@ impl<'a> RowText<'a> {
 
 /// The guide to writing a palette file for the themes folder.
 const THEMES_GUIDE_URL: &str = "https://spotifast.rocks/settings-and-files/#custom-themes";
+/// The GitHub release page of the running version, opened by About's
+/// Release notes button. Every release is tagged `v` and its version.
+const RELEASE_NOTES_URL: &str = concat!(
+    env!("CARGO_PKG_REPOSITORY"),
+    "/releases/tag/v",
+    env!("CARGO_PKG_VERSION")
+);
 
 fn section_matches(needle: &str, title: &str, rows: &[RowText<'_>]) -> bool {
     let needle = needle.trim().to_lowercase();
@@ -1931,6 +1938,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let check_for_updates = gettext(locale, "Check for updates");
     let checking = gettext(locale, "Checking…");
     let keyboard_shortcuts = gettext(locale, "Keyboard shortcuts");
+    let release_notes = gettext(locale, "Release notes");
     let source_code = gettext(locale, "Source code");
     let about_rows = [
         RowText::new(
@@ -1938,7 +1946,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             built_with.clone(),
         ),
         RowText::new(
-            format!("{check_for_updates} {checking}"),
+            format!("{check_for_updates} {checking} {release_notes}"),
             format!("{keyboard_shortcuts} {source_code}"),
         ),
     ];
@@ -1964,8 +1972,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 });
             });
             ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 8.0;
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = Vec2::splat(8.0);
                 let check_label = if app.update_checking {
                     &checking
                 } else {
@@ -1976,6 +1984,18 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     && !app.update_checking
                 {
                     app.actions.push(Action::CheckForUpdates);
+                }
+                if theme::soft_button(
+                    ui,
+                    &palette,
+                    Some(Icon::ExternalLink),
+                    &release_notes,
+                    false,
+                )
+                .clicked()
+                {
+                    app.actions
+                        .push(Action::OpenUrl(RELEASE_NOTES_URL.to_owned()));
                 }
                 if theme::soft_button(ui, &palette, Some(Icon::Info), &keyboard_shortcuts, false)
                     .clicked()
@@ -2171,7 +2191,18 @@ fn eq_curve(ui: &mut egui::Ui, palette: &Palette, settings: &crate::eq::EqSettin
 
 #[cfg(test)]
 mod tests {
-    use super::{RowText, row_matches, section_matches};
+    use super::{RELEASE_NOTES_URL, RowText, row_matches, section_matches};
+
+    #[test]
+    fn release_notes_open_the_running_version_release_page() {
+        assert_eq!(
+            RELEASE_NOTES_URL,
+            format!(
+                "https://github.com/crmne/spotifast/releases/tag/v{}",
+                env!("CARGO_PKG_VERSION")
+            )
+        );
+    }
 
     #[test]
     fn empty_filter_matches_everything() {
