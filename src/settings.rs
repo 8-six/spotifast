@@ -1015,6 +1015,17 @@ mod tests {
     }
 
     #[test]
+    fn queue_width_round_trips_through_saved_settings() {
+        let settings = Settings {
+            queue_width: 300.0,
+            ..Default::default()
+        };
+        let text = serde_json::to_string(&settings).unwrap();
+        let restored: Settings = serde_json::from_str(&text).unwrap();
+        assert_eq!(restored.queue_width, 300.0);
+    }
+
+    #[test]
     fn mac_notch_widget_defaults_to_false_when_absent_and_round_trips_true() {
         let empty: Settings = serde_json::from_str("{}").unwrap();
         assert!(!empty.mac_notch_widget);

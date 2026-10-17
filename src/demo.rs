@@ -1383,6 +1383,11 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
             _ => {}
         }
     }
+    // Fixtures assign panel flags directly, bypassing the toggles' mutual
+    // exclusion: the queue wins, so staged states never show both panels.
+    if app.show_queue_panel {
+        app.show_lyrics_panel = false;
+    }
 }
 
 #[cfg(test)]
@@ -6733,6 +6738,30 @@ mod tests {
             "the row hides without a context"
         );
         app.backend.shutdown();
+    }
+
+    /// Staged fixture combinations never leave both side panels open,
+    /// no matter the surface order: the queue wins.
+    #[cfg(feature = "demo")]
+    #[test]
+    fn demo_surfaces_keep_a_single_panel() {
+        for (i, show) in [
+            "lyrics,queue",
+            "queue,lyrics",
+            "lyrics-fullscreen-view,queue",
+            "queue,lyrics-fullscreen-view",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let (_ctx, mut app) = accessible_app(&format!("single-panel-{i}"));
+            apply_flags(&mut app, None, Some(show));
+            assert!(
+                !(app.show_queue_panel && app.show_lyrics_panel),
+                "{show} leaves both panels open"
+            );
+            assert!(app.show_queue_panel, "{show} keeps the queue");
+        }
     }
 
     /// The line being sung sits high in the lyrics, a fifth of the way

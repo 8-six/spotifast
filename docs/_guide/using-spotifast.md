@@ -267,7 +267,7 @@ Winamp skins do not yet have equivalent accessibility coverage.
 | `M` | Mute |
 | `B` | Like or unlike the playing song |
 | `S` / `R` | Shuffle / cycle repeat |
-| `Q` | Queue panel |
+| `Q` | Queue panel, or the queue column in full screen |
 | `F` | Enter or leave full screen lyrics |
 | `Ctrl+F` or `/` | Search |
 | `Ctrl+B` | Show or hide the sidebar |

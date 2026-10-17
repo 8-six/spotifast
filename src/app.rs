@@ -3245,7 +3245,9 @@ impl App {
         {
             self.refresh_queue(true);
         }
-        if self.show_lyrics_panel {
+        if self.show_lyrics_panel || self.lyrics_fullscreen.is_some() {
+            // Fullscreen shows lyrics without the panel flag when the
+            // queue column is open; a track change must refresh them.
             self.request_lyrics();
         }
     }
@@ -9694,8 +9696,9 @@ impl App {
                 | Action::Forward
                 | Action::SignOut
                 | Action::ToggleWinampWindow
-                | Action::ToggleQueuePanel
         ) {
+            // ToggleQueuePanel is deliberately absent: in lyrics fullscreen
+            // it flips the queue column instead of leaving the view.
             self.leave_lyrics_fullscreen(ctx);
         }
         // Pausing or skipping while a play-search is in flight is a newer
@@ -10486,8 +10489,12 @@ impl App {
                         }
                     }
                     self.lyrics_fullscreen_seen = false;
-                    self.show_lyrics_panel = true;
-                    self.show_queue_panel = false;
+                    // The queue flag is preserved: an open side panel becomes
+                    // the fullscreen queue column instead of vanishing. The
+                    // lyrics panel yields, so normal mode never shows both.
+                    if !self.show_queue_panel {
+                        self.show_lyrics_panel = true;
+                    }
                     self.lyrics_following = true;
                     self.lyrics_line_shown = None;
                     self.request_lyrics();
@@ -13160,6 +13167,172 @@ mod tests {
         assert!(!app.settings.custom_titlebar);
         assert!(!app.switch_intent, "the mini player is not the main window");
         assert!(!fastframe_titlebar::enabled());
+    }
+
+    /// Q in lyrics fullscreen flips the queue column without leaving
+    /// the view, and entering fullscreen preserves an open queue.
+    #[test]
+    fn queue_toggle_in_fullscreen_keeps_the_view() {
+        let mut app = headless_app();
+        let ctx = egui::Context::default();
+        app.lyrics_fullscreen = Some(false);
+        app.apply(Action::ToggleQueuePanel, &ctx);
+        assert!(app.lyrics_fullscreen.is_some(), "Q stays in fullscreen");
+        assert!(app.show_queue_panel, "Q opens the queue column");
+        app.apply(Action::ToggleQueuePanel, &ctx);
+        assert!(!app.show_queue_panel, "Q closes the queue column");
+        assert!(
+            app.lyrics_fullscreen.is_some(),
+            "closing the column stays in fullscreen"
+        );
+        app.lyrics_fullscreen = None;
+        app.show_queue_panel = true;
+        app.apply(Action::SetLyricsFullscreen(true), &ctx);
+        assert!(app.lyrics_fullscreen.is_some());
+        assert!(
+            app.show_queue_panel,
+            "entering fullscreen keeps the open queue as its column"
+        );
+    }
+
+    /// Entering fullscreen never leaves both side panels open: the
+    /// queue wins when it is already showing, otherwise lyrics opens.
+    #[test]
+    fn entering_fullscreen_keeps_a_single_panel() {
+        let mut app = headless_app();
+        let ctx = egui::Context::default();
+        app.show_queue_panel = true;
+        app.show_lyrics_panel = false;
+        app.apply(Action::SetLyricsFullscreen(true), &ctx);
+        assert!(app.show_queue_panel);
+        assert!(
+            !app.show_lyrics_panel,
+            "an open queue yields the lyrics panel"
+        );
+        app.lyrics_fullscreen = None;
+        app.show_queue_panel = false;
+        app.show_lyrics_panel = false;
+        app.apply(Action::SetLyricsFullscreen(true), &ctx);
+        assert!(
+            app.show_lyrics_panel,
+            "without a queue, entering still opens lyrics"
+        );
+        assert!(!app.show_queue_panel);
+    }
+
+    /// Narrowing the fullscreen queue column survives leaving fullscreen:
+    /// the returning side panel draws around the narrowed width instead
+    /// of writing its remembered width back over the setting.
+    #[test]
+    fn leaving_fullscreen_keeps_the_narrowed_queue_width() {
+        let mut app = headless_app();
+        let ctx = egui::Context::default();
+        crate::theme::install(&ctx);
+        let panel = |app: &mut App, ctx: &egui::Context| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1600.0, 900.0),
+                    )),
+                    ..Default::default()
+                },
+                |ui| crate::ui::queue::side_panel(app, ui),
+            );
+            output.textures_delta.clear();
+        };
+        let stored_width = |ctx: &egui::Context| {
+            egui::containers::panel::PanelState::load(ctx, egui::Id::new("queue-panel"))
+                .map(|state| state.outer_rect.width())
+                .unwrap_or(0.0)
+        };
+        panel(&mut app, &ctx);
+        assert!(
+            (app.settings.queue_width - 360.0).abs() < 1.0,
+            "the panel opens at the default width"
+        );
+        assert!(
+            (stored_width(&ctx) - 360.0).abs() < 1.0,
+            "the panel draws at the default width"
+        );
+        // A fullscreen drag narrows the shared width while the side panel
+        // is hidden, so egui still remembers the old width here.
+        app.settings.queue_width = 300.0;
+        panel(&mut app, &ctx);
+        assert!(
+            (app.settings.queue_width - 300.0).abs() < 1.0,
+            "the returning panel keeps the narrowed width"
+        );
+        assert!(
+            (stored_width(&ctx) - 300.0).abs() < 1.0,
+            "the returning panel draws at the narrowed width"
+        );
+        // Below the side panel minimum the panel still draws at its own
+        // minimum, but the remembered width stays at the column floor, so
+        // reopening fullscreen shows the narrowed column again.
+        app.settings.queue_width = crate::ui::queue::FULLSCREEN_COLUMN_MIN;
+        panel(&mut app, &ctx);
+        assert!(
+            (app.settings.queue_width - crate::ui::queue::FULLSCREEN_COLUMN_MIN).abs() < 1.0,
+            "the returning panel keeps the floor width"
+        );
+        assert!(
+            (stored_width(&ctx) - crate::theme::SIDE_PANEL_MIN_WIDTH).abs() < 1.0,
+            "the panel draws at its own minimum"
+        );
+        app.backend.shutdown();
+    }
+
+    /// A track change requests fresh lyrics while fullscreen shows the
+    /// queue column: the lyrics panel flag stays off there, so gating on
+    /// it alone would leave the previous track's words up.
+    #[test]
+    fn track_change_requests_lyrics_with_fullscreen_queue_open() {
+        let mut app = headless_app();
+        let ctx = egui::Context::default();
+        app.local.track = Some(crate::player::LocalTrack {
+            uri: "spotify:track:a".into(),
+            ..Default::default()
+        });
+        app.local.playback = Playback::Playing;
+        app.on_now_playing_changed();
+        app.show_queue_panel = true;
+        app.apply(Action::SetLyricsFullscreen(true), &ctx);
+        assert!(
+            !app.show_lyrics_panel,
+            "the queue column leaves the lyrics panel off"
+        );
+        app.local.track = Some(crate::player::LocalTrack {
+            uri: "spotify:track:b".into(),
+            ..Default::default()
+        });
+        app.on_now_playing_changed();
+        assert_eq!(
+            app.lyrics_uri.as_deref(),
+            Some("spotify:track:b"),
+            "fullscreen requests the new track's lyrics"
+        );
+        app.backend.shutdown();
+    }
+
+    /// The fullscreen drag starts from the drawn column width: with 500
+    /// saved, the column draws 380, and a 10-point inward drag narrows
+    /// it at once instead of being swallowed by the clamp.
+    #[test]
+    fn fullscreen_column_drag_starts_from_the_drawn_width() {
+        use crate::ui::queue::{
+            FULLSCREEN_COLUMN_MAX, FULLSCREEN_COLUMN_MIN, fullscreen_column_drag_width,
+        };
+        assert_eq!(fullscreen_column_drag_width(500.0, 10.0), 370.0);
+        assert_eq!(
+            fullscreen_column_drag_width(500.0, -10.0),
+            FULLSCREEN_COLUMN_MAX
+        );
+        assert_eq!(fullscreen_column_drag_width(300.0, 10.0), 290.0);
+        assert_eq!(
+            fullscreen_column_drag_width(FULLSCREEN_COLUMN_MIN, 10.0),
+            FULLSCREEN_COLUMN_MIN
+        );
     }
 
     #[test]
