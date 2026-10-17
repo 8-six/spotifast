@@ -98,6 +98,18 @@ clients. Spotifast uses its session for:
   obtains a token for that receiver, as Spotify's own apps do. See
   [how it connects](/how-it-connects/#google-cast-devices).
 
+### Private requests
+
+Where no public API covers a feature, Spotifast may read the private
+endpoints Spotify's own apps use, through the librespot session. These
+requests only read; the one exception is pre-save on upcoming album pages,
+which writes only when the user presses the button. Requests to Spotify's
+client API go into librespot first: a pull request upstream, carried in
+Spotifast's librespot fork until a librespot release includes it. Pathfinder
+queries, which librespot does not make, stay in Spotifast. Spotify can change
+any of these without notice, so a feature that uses one falls back to the Web
+API where it has an answer, and otherwise leaves out what it could not read.
+
 ## librespot playback
 
 librespot provides:
