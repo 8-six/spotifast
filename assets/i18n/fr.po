@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 18:32+0200\n"
+"POT-Creation-Date: 2026-10-17 18:38+0200\n"
 "PO-Revision-Date: 2026-09-09 13:30+0000\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: French\n"
@@ -163,7 +163,7 @@ msgstr "Aucun résultat."
 msgid "Sort by recently played"
 msgstr "Trier par écoute récente"
 
-#: src/ui/sidebar.rs:1988 src/ui/player_bar.rs:686 src/ui/widgets.rs:1166
+#: src/ui/sidebar.rs:1988 src/ui/player_bar.rs:737 src/ui/widgets.rs:1166
 #: src/ui/artist.rs:388 src/ui/collection.rs:260 src/ui/prerelease.rs:309
 #: src/ui/search.rs:408 src/ui/show.rs:389
 msgid "Play"
@@ -221,85 +221,89 @@ msgstr "{name}, dossier, réduit"
 msgid "{name}, folder, expanded"
 msgstr "{name}, dossier, développé"
 
-#: src/ui/player_bar.rs:79
+#: src/ui/player_bar.rs:81
 msgid "Click to change the visualizer"
 msgstr "Cliquez pour changer de visualiseur"
 
-#: src/ui/player_bar.rs:401 src/ui/lyrics.rs:131 src/ui/lyrics.rs:626
+#: src/ui/player_bar.rs:403 src/ui/lyrics.rs:131 src/ui/lyrics.rs:626
 msgid "Nothing playing"
 msgstr "Aucune lecture en cours"
 
-#: src/ui/player_bar.rs:407 src/app.rs:8625
+#: src/ui/player_bar.rs:409 src/app.rs:8625
 msgid "Pick a song, album, or playlist"
 msgstr "Choisissez un titre, un album ou une playlist"
 
-#: src/ui/player_bar.rs:541 src/ui/widgets.rs:736 src/ui/widgets.rs:993
-#: src/ui/widgets.rs:1911
-msgid "Remove from Liked Songs"
-msgstr "Retirer des Titres likés"
+#: src/ui/player_bar.rs:543 src/ui/widgets.rs:773
+msgid "Add to playlist"
+msgstr "Ajouter à une playlist"
 
-#: src/ui/player_bar.rs:548 src/ui/widgets.rs:739 src/ui/widgets.rs:996
+#: src/ui/player_bar.rs:550 src/ui/widgets.rs:739 src/ui/widgets.rs:996
 #: src/ui/widgets.rs:1913
 msgid "Save to Liked Songs"
 msgstr "Ajouter aux Titres likés"
 
-#: src/ui/player_bar.rs:630 src/ui/player_bar.rs:637 src/ui/collection.rs:314
+#: src/ui/player_bar.rs:611 src/ui/widgets.rs:736 src/ui/widgets.rs:993
+#: src/ui/widgets.rs:1911
+msgid "Remove from Liked Songs"
+msgstr "Retirer des Titres likés"
+
+#: src/ui/player_bar.rs:681 src/ui/player_bar.rs:688 src/ui/collection.rs:314
 msgid "Shuffle"
 msgstr "Lecture aléatoire"
 
-#: src/ui/player_bar.rs:651
+#: src/ui/player_bar.rs:702
 msgid "Previous"
 msgstr "Précédent"
 
-#: src/ui/player_bar.rs:684 src/ui/collection.rs:258
+#: src/ui/player_bar.rs:735 src/ui/collection.rs:258
 msgid "Pause"
 msgstr "Pause"
 
-#: src/ui/player_bar.rs:702
+#: src/ui/player_bar.rs:753
 msgid "Next"
 msgstr "Suivant"
 
-#: src/ui/player_bar.rs:710
+#: src/ui/player_bar.rs:761
 msgid "Repeat"
 msgstr "Répéter"
 
-#: src/ui/player_bar.rs:714
+#: src/ui/player_bar.rs:765
 msgid "Repeat one"
 msgstr "Répéter un titre"
 
-#: src/ui/player_bar.rs:719
+#: src/ui/player_bar.rs:770
 msgid "Repeat off"
 msgstr "Désactiver la répétition"
 
-#: src/ui/player_bar.rs:780
+#: src/ui/player_bar.rs:831
 msgid "Playback position (%)"
 msgstr "Position de lecture (%)"
 
-#: src/ui/player_bar.rs:823
+#: src/ui/player_bar.rs:874
 msgid "Volume (%)"
 msgstr "Volume (%)"
 
-#: src/ui/player_bar.rs:856
+#: src/ui/player_bar.rs:907
 msgid "Unmute"
 msgstr "Rétablir le son"
 
-#: src/ui/player_bar.rs:858
+#: src/ui/player_bar.rs:909
 msgid "Mute"
 msgstr "Couper le son"
 
-#: src/ui/player_bar.rs:874
+#: src/ui/player_bar.rs:925
 msgid "This device's volume can't be changed from Spotifast"
 msgstr "Le volume de cet appareil ne peut pas être modifié depuis Spotifast"
 
-#: src/ui/player_bar.rs:894 src/ui/devices.rs:198
+#: src/ui/player_bar.rs:945 src/ui/devices.rs:198
 msgid "Connect to a device"
 msgstr "Se connecter à un appareil"
 
-#: src/ui/player_bar.rs:913 src/ui/queue.rs:23 src/ui/queue.rs:79
+#: src/ui/player_bar.rs:964 src/ui/queue.rs:23 src/ui/queue.rs:79
 msgid "Queue"
 msgstr "File d’attente"
 
-#: src/ui/player_bar.rs:939 src/ui/lyrics.rs:67 src/ui/lyrics.rs:549
+#: src/ui/player_bar.rs:990 src/ui/lyrics.rs:67 src/ui/lyrics.rs:549
 msgid "Lyrics"
 msgstr "Paroles"
 
@@ -444,10 +448,6 @@ msgstr "Ajouter à la file d’attente"
 #: src/ui/widgets.rs:755 src/ui/widgets.rs:1057 src/ui/keys.rs:226
 msgid "Remove from this playlist"
 msgstr "Retirer de cette playlist"
-
-#: src/ui/widgets.rs:773
-msgid "Add to playlist"
-msgstr "Ajouter à une playlist"
 
 #: src/ui/widgets.rs:858
 msgid "Filter playlists"

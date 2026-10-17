@@ -1837,8 +1837,6 @@ mod tests {
                 ("Repeat off", "Repeat"),
                 ("Mute", "Unmute"),
                 ("Unmute", "Mute"),
-                ("Remove from Liked Songs", "Save to Liked Songs"),
-                ("Save to Liked Songs", "Remove from Liked Songs"),
             ] {
                 let tree = accessible_frame(&ctx, &mut app, vec![]);
                 let button = accessible_node(&tree, &gettext(locale, source), Role::Button);
@@ -1850,6 +1848,36 @@ mod tests {
                 let tree = accessible_frame(&ctx, &mut app, vec![]);
                 accessible_node(&tree, &gettext(locale, next), Role::Button);
             }
+            // A liked song's heart opens Add to playlist, whose Remove from
+            // Liked Songs unlikes it; the heart then likes it at once (#792).
+            let click = |ctx: &egui::Context, app: &mut App, label: &'static str| {
+                let tree = accessible_frame(ctx, app, vec![]);
+                let button = accessible_node(&tree, &gettext(locale, label), Role::Button);
+                accessible_frame(
+                    ctx,
+                    app,
+                    vec![accessible_action(button, AccessibleAction::Click, None)],
+                );
+                // A menu's first frame only measures it.
+                accessible_frame(ctx, app, vec![]);
+            };
+            let now = app.now_playing().unwrap().uri;
+            assert_eq!(app.is_saved(&now), Some(true));
+            click(&ctx, &mut app, "Add to playlist");
+            let tree = accessible_frame(&ctx, &mut app, vec![]);
+            accessible_node(&tree, &gettext(locale, "Filter playlists"), Role::TextInput);
+            assert_eq!(app.is_saved(&now), Some(true), "opening it keeps the like");
+            click(&ctx, &mut app, "Remove from Liked Songs");
+            assert_eq!(app.is_saved(&now), Some(false));
+            click(&ctx, &mut app, "Save to Liked Songs");
+            assert_eq!(app.is_saved(&now), Some(true));
+            let tree = accessible_frame(&ctx, &mut app, vec![]);
+            assert!(
+                !tree.nodes.iter().any(|(_, node)| {
+                    node.label() == Some(gettext(locale, "Filter playlists").as_ref())
+                }),
+                "liking a song does not open the menu"
+            );
 
             app.remote = None;
             assert!(app.now_playing().is_none());
@@ -9892,7 +9920,7 @@ mod tests {
         let targets: [(&str, &str, Pick); 3] = [
             ("album header", "Remove from Your Library", |_| true),
             ("song row", "Remove from Liked Songs", |b| b.y1 < 700.0),
-            ("player bar", "Remove from Liked Songs", |b| b.y0 > 700.0),
+            ("player bar", "Add to playlist", |b| b.y0 > 700.0),
         ];
         for theme in ["dark", "light"] {
             for (place, label, pick) in targets {
