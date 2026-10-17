@@ -1944,7 +1944,7 @@ impl App {
         None
     }
 
-    /// Finds a playlist already loaded in the library, search, or Home shelf.
+    /// Finds a playlist already loaded in the library, search, or a Home shelf.
     pub fn known_playlist(&self, id: &str) -> Option<&Playlist> {
         self.library
             .playlists
@@ -1960,6 +1960,12 @@ impl App {
             .or_else(|| {
                 self.home
                     .made_for_you
+                    .get()
+                    .and_then(|playlists| playlists.iter().find(|playlist| playlist.id == id))
+            })
+            .or_else(|| {
+                self.home
+                    .top_mixes
                     .get()
                     .and_then(|playlists| playlists.iter().find(|playlist| playlist.id == id))
             })
@@ -4500,6 +4506,11 @@ impl App {
                 home.made_for_you_personalized = personalized;
             }
         }
+        if let Some(mixes) = cached.top_mixes
+            && home.top_mixes.get().is_none()
+        {
+            home.top_mixes = Loadable::Loaded(mixes);
+        }
         if !home.podcasts_answered && home.podcasts.is_empty() {
             home.podcasts = cached.podcasts;
         }
@@ -4527,6 +4538,7 @@ impl App {
             top_tracks: home.top_tracks.get().cloned(),
             made_for_you: home.made_for_you.get().cloned(),
             made_for_you_personalized: home.made_for_you_personalized,
+            top_mixes: home.top_mixes.get().cloned(),
             discover: Default::default(),
             podcasts: home.podcasts.clone(),
         };
@@ -6293,6 +6305,7 @@ impl App {
                 generation,
                 personalized,
                 result,
+                top_mixes,
             } => {
                 if generation != self.home.made_for_you_generation {
                     return;
@@ -6303,6 +6316,7 @@ impl App {
                     self.home.made_for_you_personalized = personalized;
                 }
                 self.home.made_for_you.refresh(result);
+                self.home.top_mixes.refresh(top_mixes);
                 if self.home.made_for_you_loading {
                     self.home.made_for_you_loading = false;
                     self.home_answered(changed);
@@ -13858,6 +13872,7 @@ mod tests {
         HomeSnapshot {
             made_for_you: None,
             made_for_you_personalized: false,
+            top_mixes: cached_playlists(&["cached-mix"]),
             recently_played: Some(vec![played("spotify:track:cached-recent")]),
             top_artists: Some(vec![Artist {
                 id: "cached-artist".into(),
@@ -13893,6 +13908,7 @@ mod tests {
             Some(&vec![played("spotify:track:cached-recent")])
         );
         assert!(app.home.made_for_you.get().is_some());
+        assert_eq!(app.home.top_mixes.get().map(Vec::len), Some(1));
         assert_eq!(app.home.podcasts.len(), 1);
 
         app.handle_api(ApiResponse::RecentlyPlayed {
@@ -13921,6 +13937,7 @@ mod tests {
             generation: app.home.made_for_you_generation,
             personalized: false,
             result: Err(crate::api::ApiError::RateLimited),
+            top_mixes: Err(crate::api::ApiError::RateLimited),
         });
         assert_eq!(
             app.home.recently_played.get(),
@@ -13931,6 +13948,7 @@ mod tests {
             app.home.made_for_you.get().is_some(),
             "a turned away search keeps what it showed"
         );
+        assert_eq!(app.home.top_mixes.get().map(Vec::len), Some(1));
 
         // The failed shelf refresh keeps its cached cards. Successful
         // recently played and top tracks answers are saved independently.
@@ -13949,6 +13967,7 @@ mod tests {
             Some(vec![song("spotify:track:fresh-top")])
         );
         assert_eq!(saved.data.made_for_you.as_ref().map(Vec::len), Some(1));
+        assert_eq!(saved.data.top_mixes, cached_home().top_mixes);
         assert_eq!(saved.data.podcasts.len(), 1);
     }
 
@@ -26010,10 +26029,16 @@ mod tests {
             name: "Your current mix".into(),
             ..Default::default()
         };
+        let mix = crate::api::models::Playlist {
+            id: "2234567890123456789012".into(),
+            name: "Synthpop Mix".into(),
+            ..Default::default()
+        };
         app.handle_api(ApiResponse::MadeForYou {
             personalized: true,
             generation: 4,
             result: Ok(vec![playlist.clone()]),
+            top_mixes: Ok(vec![mix.clone()]),
         });
         assert_eq!(
             app.home.made_for_you.get().unwrap(),
@@ -26023,14 +26048,39 @@ mod tests {
             personalized: true,
             generation: 4,
             result: Err(crate::api::ApiError::RateLimited),
+            top_mixes: Err(crate::api::ApiError::RateLimited),
         });
         assert_eq!(app.home.made_for_you.get().unwrap(), &vec![playlist]);
+        assert_eq!(app.home.top_mixes.get().unwrap(), &vec![mix.clone()]);
         app.handle_api(ApiResponse::MadeForYou {
             personalized: true,
             generation: 3,
             result: Ok(vec![]),
+            top_mixes: Ok(vec![]),
         });
         assert_eq!(app.home.made_for_you.get().unwrap().len(), 1);
+        assert_eq!(app.home.top_mixes.get().unwrap(), &vec![mix]);
+    }
+
+    /// Without a session read, Your top mixes has nothing to show and no
+    /// fallback, so the shelf stays hidden while Made for you falls back.
+    #[test]
+    fn top_mixes_stay_hidden_until_the_session_reads_them() {
+        let mut app = headless_app();
+        app.load_home(false);
+        assert_eq!(app.home.top_mixes, Loadable::NotLoaded);
+        app.handle_api(ApiResponse::MadeForYou {
+            generation: app.home.made_for_you_generation,
+            personalized: false,
+            result: Ok(vec![Playlist {
+                id: "fallback".into(),
+                ..Default::default()
+            }]),
+            top_mixes: Err(crate::api::ApiError::RateLimited),
+        });
+        assert!(app.home.made_for_you.get().is_some());
+        assert!(app.home.top_mixes.get().is_none());
+        assert!(!app.home.top_mixes.is_loading());
     }
 
     /// Playback readiness upgrades fallback cards without blanking or double-counting the shelf.
@@ -26050,6 +26100,7 @@ mod tests {
                     generation: old,
                     personalized: false,
                     result: Ok(fallback.clone()),
+                    top_mixes: Err(crate::api::ApiError::RateLimited),
                 });
             } else {
                 app.restore_home(HomeSnapshot {
@@ -26076,11 +26127,13 @@ mod tests {
                     id: "personalized".into(),
                     ..Default::default()
                 }]),
+                top_mixes: Ok(Vec::new()),
             });
             app.handle_api(ApiResponse::MadeForYou {
                 generation: old,
                 personalized: false,
                 result: Ok(fallback),
+                top_mixes: Err(crate::api::ApiError::RateLimited),
             });
             assert_eq!(app.home.made_for_you.get().unwrap()[0].id, "personalized");
             assert!(app.home.made_for_you_personalized);
@@ -26101,6 +26154,7 @@ mod tests {
             generation: old,
             personalized: true,
             result: Ok(Vec::new()),
+            top_mixes: Ok(Vec::new()),
         });
         assert!(app.home.made_for_you.is_loading());
         assert_eq!(app.home.awaiting, 4);
@@ -26121,20 +26175,28 @@ mod tests {
                 ..Default::default()
             },
         ];
+        let mixes = vec![Playlist {
+            id: "mix".into(),
+            ..Default::default()
+        }];
         app.handle_api(ApiResponse::MadeForYou {
             generation: app.home.made_for_you_generation,
             personalized: true,
             result: Ok(cards.clone()),
+            top_mixes: Ok(mixes.clone()),
         });
         let saved = app.backend.take_home_cache_stores().pop().unwrap().data;
         assert!(saved.made_for_you_personalized);
         assert_eq!(saved.made_for_you, Some(cards.clone()));
+        assert_eq!(saved.top_mixes, Some(mixes.clone()));
         let mut next = listener_app();
         next.restore_home(saved);
         assert_eq!(next.home.made_for_you.get(), Some(&cards));
+        assert_eq!(next.home.top_mixes.get(), Some(&mixes));
         assert!(next.home.made_for_you_personalized);
         next.restore_home(cached_home());
         assert_eq!(next.home.made_for_you.get(), Some(&cards));
+        assert_eq!(next.home.top_mixes.get(), Some(&mixes));
     }
 
     #[test]

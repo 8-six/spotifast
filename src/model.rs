@@ -623,6 +623,7 @@ pub struct HomeData {
     pub made_for_you_loading: bool,
     /// Whether playback was ready when the current shelf request began.
     pub made_for_you_session_requested: bool,
+    pub top_mixes: Loadable<Vec<Playlist>>,
     /// Saved podcasts with their newest episodes, in library order, for the
     /// podcast shelf. A refresh replaces them only once it answers.
     pub podcasts: Vec<(Show, Vec<Episode>)>,
@@ -666,6 +667,7 @@ pub struct HomeSnapshot {
     /// The ordered shelf and its origin, retained across restarts.
     pub made_for_you: Option<Vec<Playlist>>,
     pub made_for_you_personalized: bool,
+    pub top_mixes: Option<Vec<Playlist>>,
     /// Legacy search shelves, read for compatibility with older cache files.
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub discover: std::collections::BTreeMap<String, Vec<Playlist>>,

@@ -121,6 +121,15 @@ const PLAYLISTS: &[&str] = &[
     "Kitchen jams",
 ];
 
+const TOP_MIXES: &[(&str, &str)] = &[
+    ("Downtempo Mix", "Bonobo, Khruangbin and Floating Points"),
+    ("Nils Frahm Mix", "Nils Frahm, Jon Hopkins and Four Tet"),
+    ("Electronic Mix", "Four Tet, Floating Points and Bonobo"),
+    ("Chill Mix", "Khruangbin, Sault and Nils Frahm"),
+    ("Hip Hop Mix", "Little Simz, Sault and Khruangbin"),
+    ("2010s Mix", "Jon Hopkins, Bonobo and Four Tet"),
+];
+
 fn artist_ref(index: usize) -> ArtistRef {
     ArtistRef {
         id: Some(format!("art{index}")),
@@ -226,6 +235,24 @@ fn playlist(index: usize) -> Playlist {
                 12_345 + index as u64
             },
         }),
+        ..Playlist::default()
+    }
+}
+
+fn top_mix(index: usize) -> Playlist {
+    let (name, artists) = TOP_MIXES[index % TOP_MIXES.len()];
+    Playlist {
+        id: format!("mix{index}"),
+        name: name.to_string(),
+        uri: format!("spotify:playlist:mix{index}"),
+        description: Some(artists.to_string()),
+        images: image(600 + index as u32),
+        owner: Owner {
+            id: Some("spotify".into()),
+            display_name: Some("Spotify".into()),
+            uri: None,
+        },
+        tracks: Some(TrackCount { total: 50 }),
         ..Playlist::default()
     }
 }
@@ -536,6 +563,7 @@ pub fn populate(app: &mut App) {
     app.home.top_songs_complete = true;
     app.home.recommendations = Loadable::Loaded(tracks.iter().skip(20).take(10).cloned().collect());
     app.home.made_for_you = Loadable::Loaded(playlists.iter().take(10).cloned().collect());
+    app.home.top_mixes = Loadable::Loaded((0..TOP_MIXES.len()).map(top_mix).collect());
 
     // Search.
     app.search.query = "Bonobo".into();
@@ -4682,12 +4710,19 @@ mod tests {
         events: Vec<egui::Event>,
         view: fn(&mut App, &mut egui::Ui),
     ) -> Vec<(String, egui::Rect)> {
+        view_frame_sized(ctx, app, events, view, egui::vec2(1280.0, 2200.0))
+    }
+
+    fn view_frame_sized(
+        ctx: &egui::Context,
+        app: &mut App,
+        events: Vec<egui::Event>,
+        view: fn(&mut App, &mut egui::Ui),
+        size: egui::Vec2,
+    ) -> Vec<(String, egui::Rect)> {
         let mut output = ctx.run_ui(
             egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(
-                    egui::Pos2::ZERO,
-                    egui::vec2(1280.0, 2200.0),
-                )),
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
                 events,
                 ..Default::default()
             },
@@ -5778,10 +5813,12 @@ mod tests {
             app.settings.home = serde_json::from_str(&format!(
                 r#"{{"made_for_you":{{"visible":{made_for_you}}},"recommendations":{{"visible":{recommendations}}}}}"#
             )).unwrap();
-            view_frame(&ctx, &mut app, vec![], view);
-            let text = view_frame(&ctx, &mut app, vec![], view);
+            let size = egui::vec2(1280.0, 3200.0);
+            view_frame_sized(&ctx, &mut app, vec![], view, size);
+            let text = view_frame_sized(&ctx, &mut app, vec![], view, size);
             for (label, expected) in [
                 ("Made for you", made_for_you),
+                ("Your top mixes", made_for_you),
                 ("Recommended for you", recommendations),
                 ("Liked Songs", true),
                 ("Recently played", true),

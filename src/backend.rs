@@ -384,6 +384,7 @@ pub enum ApiResponse {
         generation: u64,
         personalized: bool,
         result: ApiResult<Vec<Playlist>>,
+        top_mixes: ApiResult<Vec<Playlist>>,
     },
     MyPlaylists {
         offset: u32,
@@ -2101,11 +2102,12 @@ impl Worker {
                         _ => {}
                     }
                     if let ApiResponse::MadeForYou {
-                        result: Ok(playlists),
-                        ..
+                        result, top_mixes, ..
                     } = response.as_ref()
                     {
-                        self.api.observe_playlists(playlists);
+                        for playlists in [result, top_mixes].into_iter().flatten() {
+                            self.api.observe_playlists(playlists);
+                        }
                     }
                     self.emit(Event::Api(response));
                 }
@@ -4304,9 +4306,12 @@ fn operation_for(api: &ApiGateway, request: &ApiRequest) -> Operation {
 fn observe_playlists(api: &ApiGateway, response: &ApiResponse) {
     match response {
         ApiResponse::MadeForYou {
-            result: Ok(playlists),
-            ..
-        } => api.observe_playlists(playlists),
+            result, top_mixes, ..
+        } => {
+            for playlists in [result, top_mixes].into_iter().flatten() {
+                api.observe_playlists(playlists);
+            }
+        }
         ApiResponse::MyPlaylists {
             result: Ok(page), ..
         } => api.observe_playlists(&page.items),
@@ -4439,7 +4444,7 @@ async fn handle(
     request: ApiRequest,
 ) -> (ApiResponse, Vec<ApiSource>) {
     if let ApiRequest::MadeForYou { generation, force } = request {
-        let session_result = match engine
+        let shelves = match engine
             .filter(|engine| same_account(&engine.session().username(), api.account().as_ref()))
         {
             Some(engine) => {
@@ -4456,6 +4461,15 @@ async fn handle(
                 message: "The playback session is unavailable for Made for you.".into(),
             }),
         };
+        let (session_result, top_mixes) = match shelves {
+            Ok(shelves) => {
+                if let Err(error) = &shelves.top_mixes {
+                    log::warn!("Your top mixes session read failed: {error}");
+                }
+                (Ok(shelves.made_for_you), shelves.top_mixes)
+            }
+            Err(error) => (Err(error.clone()), Err(error)),
+        };
         let (result, personalized, expired) =
             with_shared_made_for_you_fallback(session_result, || async {
                 shared_made_for_you(api).await
@@ -4466,6 +4480,7 @@ async fn handle(
                 generation,
                 personalized,
                 result,
+                top_mixes,
             },
             expired,
         );
@@ -7078,6 +7093,7 @@ mod authorization_tests {
                     generation: 1,
                     personalized: false,
                     result: Ok(Vec::new()),
+                    top_mixes: Err(ApiError::RateLimited),
                 }),
                 expired: vec![ApiSource::Personal],
                 shared_lease: worker.credentials.lease(CredentialSlot::Shared),
@@ -7128,6 +7144,7 @@ mod authorization_tests {
                             id: "old-account".into(),
                             ..Default::default()
                         }]),
+                        top_mixes: Ok(Vec::new()),
                     }),
                     expired: Vec::new(),
                     shared_lease,
@@ -7142,6 +7159,51 @@ mod authorization_tests {
                     .all(|event| !matches!(event, Event::Api(_)))
             );
         }
+    }
+
+    /// Top mixes open like Made for you cards once a Home answer names their owner.
+    #[test]
+    fn home_answers_record_top_mix_ownership() {
+        let (runtime, mut worker, events) = worker("home-top-mixes-access");
+        let _entered = runtime.enter();
+        worker
+            .api
+            .install(ApiSource::Shared, AccountId::new("alice"))
+            .unwrap();
+        let mix = Playlist {
+            id: "mix".into(),
+            owner: Owner {
+                id: Some("spotify".into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (commands, receiver) = mpsc::unbounded_channel();
+        commands
+            .send(Command::ApiFinished {
+                generation: *worker.session.borrow(),
+                home_account: Some(AccountId::new("alice")),
+                response: Box::new(ApiResponse::MadeForYou {
+                    generation: 1,
+                    personalized: true,
+                    result: Ok(Vec::new()),
+                    top_mixes: Ok(vec![mix]),
+                }),
+                expired: Vec::new(),
+                shared_lease: worker.credentials.lease(CredentialSlot::Shared),
+                personal_lease: worker.credentials.lease(CredentialSlot::Personal),
+            })
+            .unwrap();
+        commands.send(Command::Shutdown).unwrap();
+        runtime.block_on(worker.run(receiver));
+        assert_eq!(
+            worker.api.playlist_access("mix"),
+            crate::api::PlaylistAccess::External
+        );
+        assert!(events.try_iter().any(|event| matches!(
+            event, Event::Api(response) if matches!(response.as_ref(),
+                ApiResponse::MadeForYou { top_mixes: Ok(mixes), .. } if mixes.len() == 1)
+        )));
     }
 
     pub(super) fn worker(

@@ -48,6 +48,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
 
     if app.settings.home.made_for_you.visible {
         made_for_you(app, ui);
+        top_mixes(app, ui);
     }
     recently_played(app, ui);
     podcasts(app, ui);
@@ -248,59 +249,83 @@ fn made_for_you(app: &mut App, ui: &mut egui::Ui) {
             {
                 widgets::error_row(ui, app, message, Some(Page::Home));
             }
-            for playlist in &playlists {
-                let subtitle = playlist
-                    .description
-                    .as_deref()
-                    .map(crate::util::strip_html)
-                    .filter(|d| !d.is_empty())
-                    .unwrap_or_else(|| {
-                        // Translators: {owner} is the name of the playlist's owner.
-                        gettext(app.locale, "By {owner}").replace("{owner}", playlist.owner_name())
-                    });
-                let context_here =
-                    app.playing_context_uri().as_deref() == Some(playlist.uri.as_str());
-                let playing_here = context_here && app.believed_playing();
-                let card_art = app.art_px(widgets::CARD_ART);
-                let card = widgets::card(
-                    ui,
-                    app,
-                    pick_image(&playlist.images, card_art),
-                    &playlist.name,
-                    &subtitle,
-                    widgets::CardCover::square(playing_here),
-                );
-                if card.play {
-                    if context_here {
-                        app.actions.push(Action::TogglePlay);
-                    } else {
-                        app.actions.push(Action::PlayContext {
-                            uri: playlist.uri.clone(),
-                            offset_uri: None,
-                            offset_index: None,
-                        });
-                    }
-                }
-                if card.clicked {
-                    app.actions
-                        .push(Action::Open(Page::Playlist(playlist.id.clone())));
-                }
-                egui::Popup::context_menu(&card.response)
-                    .id(ui.make_persistent_id(("home-made_for_you-menu", &playlist.uri)))
-                    .frame(widgets::menu_frame(&palette))
-                    .show(|ui| {
-                        let owned = app.user_id().is_some_and(|id| playlist.owned_by(id));
-                        widgets::context_menu_items(
-                            ui,
-                            app,
-                            &playlist.uri,
-                            &playlist.name,
-                            owned.then_some(playlist),
-                        );
-                    });
-            }
+            playlist_cards(app, ui, "home-made_for_you-menu", &playlists);
         },
     );
+}
+
+fn top_mixes(app: &mut App, ui: &mut egui::Ui) {
+    let palette = app.palette;
+    let Some(playlists) = app
+        .home
+        .top_mixes
+        .get()
+        .filter(|playlists| !playlists.is_empty())
+        .cloned()
+    else {
+        return;
+    };
+    widgets::shelf(
+        ui,
+        &palette,
+        "top-mixes",
+        &gettext(app.locale, "Your top mixes"),
+        |ui| playlist_cards(app, ui, "home-top_mixes-menu", &playlists),
+    );
+}
+
+fn playlist_cards(app: &mut App, ui: &mut egui::Ui, menu: &str, playlists: &[Playlist]) {
+    let palette = app.palette;
+    for playlist in playlists {
+        let subtitle = playlist
+            .description
+            .as_deref()
+            .map(crate::util::strip_html)
+            .filter(|d| !d.is_empty())
+            .unwrap_or_else(|| {
+                // Translators: {owner} is the name of the playlist's owner.
+                gettext(app.locale, "By {owner}").replace("{owner}", playlist.owner_name())
+            });
+        let context_here = app.playing_context_uri().as_deref() == Some(playlist.uri.as_str());
+        let playing_here = context_here && app.believed_playing();
+        let card_art = app.art_px(widgets::CARD_ART);
+        let card = widgets::card(
+            ui,
+            app,
+            pick_image(&playlist.images, card_art),
+            &playlist.name,
+            &subtitle,
+            widgets::CardCover::square(playing_here),
+        );
+        if card.play {
+            if context_here {
+                app.actions.push(Action::TogglePlay);
+            } else {
+                app.actions.push(Action::PlayContext {
+                    uri: playlist.uri.clone(),
+                    offset_uri: None,
+                    offset_index: None,
+                });
+            }
+        }
+        if card.clicked {
+            app.actions
+                .push(Action::Open(Page::Playlist(playlist.id.clone())));
+        }
+        egui::Popup::context_menu(&card.response)
+            .id(ui.make_persistent_id((menu, &playlist.uri)))
+            .frame(widgets::menu_frame(&palette))
+            .show(|ui| {
+                let owned = app.user_id().is_some_and(|id| playlist.owned_by(id));
+                widgets::context_menu_items(
+                    ui,
+                    app,
+                    &playlist.uri,
+                    &playlist.name,
+                    owned.then_some(playlist),
+                );
+            });
+    }
 }
 
 fn recently_played(app: &mut App, ui: &mut egui::Ui) {

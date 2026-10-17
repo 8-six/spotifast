@@ -89,6 +89,9 @@ clients. Spotifast uses its session for:
   If it fails, the shared Web API can supply approximate playlist-name search
   results in the same **Made for you** shelf. Spotify may change the private Home
   response without a Web API version change.
+- **Your top mixes** through the same personalized Home read, from Spotify's
+  top mixes section. Search cannot find these personal mixes, so there is no
+  fallback: without local playback the shelf stays hidden.
 - **Radio and autoplay** through Spotify's context resolver: stations seeded
   by a song, playlist, album, or artist. Each resolution is a fresh mix of 50
   songs, so a radio page plays the songs it shows rather than asking again.

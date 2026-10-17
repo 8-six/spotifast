@@ -35,6 +35,12 @@ be rate-limited. If a refresh fails, cards already on screen remain available;
 **Retry** is shown when the first load fails. Spotify DJ is left out because
 Spotifast cannot play its special context.
 
+**Your top mixes** follows Made for you with the artist, genre and decade
+mixes Spotify builds from your listening, in Spotify's order. It comes from
+the same personalized read and has no fallback: the shelf appears once
+local playback has read it, and stays hidden for accounts Spotify gives no
+top mixes. If a refresh fails, the mixes already on screen remain.
+
 Point at a horizontal shelf, such as Made for you or Recently played on
 Home, and hold `Shift` while turning the mouse wheel. The shelf moves while
 the surrounding page stays put. Release `Shift` to scroll the page normally.

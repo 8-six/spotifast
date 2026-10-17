@@ -174,8 +174,8 @@ Playlists created or deleted in the meantime stay that way. The list is
 saved again only when Spotify has confirmed every change in it. This cache
 contains metadata only and can be deleted at any time.
 
-Home's Recently played, Your top artists, Top tracks, Made for you and Your
-podcasts shelves are stored the same way under `home/`. They are shown when
+Home's Recently played, Your top artists, Top tracks, Made for you, Your top
+mixes and Your podcasts shelves are stored the same way under `home/`. They are shown when
 the account is verified and replaced shelf by shelf as Spotify answers. A
 shelf Spotify turns away keeps what it showed, and Home is read again once
 the network is back. Each shelf is saved as soon as its new answer arrives;
@@ -401,8 +401,9 @@ restart it. Add this field to hide both:
 ```
 
 Set either `visible` value to `true` to show that shelf again. Omitted
-preferences keep both shelves visible. Other Home sections keep their normal
-order and contents. This changes what is displayed; hidden shelves still
+preferences keep both shelves visible. **Your top mixes** comes from the same
+personalized read as Made for you, so `made_for_you` hides it too. Other Home
+sections keep their normal order and contents. This changes what is displayed; hidden shelves still
 refresh in the background.
 
 ## Custom themes

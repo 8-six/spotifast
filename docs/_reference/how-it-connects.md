@@ -38,6 +38,10 @@ local playback:
    Spotify-owned playlists named Discover Weekly, Release Radar, Daily Mix,
    and daylist. The shelf keeps its **Made for you** heading, although search
    cannot recover the account's Home ordering or every personalized card.
+   The same read also asks for the account's **Your top mixes** section, at
+   the same time, with the same tokens, cache and cooldown; a `Retry-After`
+   from either section pauses both. Search cannot find personal mixes, so
+   that shelf has no fallback and keeps any cards it already shows.
    When playback becomes ready after Home, the personalized read is retried
    while existing cards stay visible. Shared rate limits can still prevent
    this fallback from loading. This
