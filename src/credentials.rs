@@ -328,6 +328,205 @@ impl ProtectedStore for NativeStore {
     }
 }
 
+/// Credential Manager first, and a copy sealed for this Windows user in the
+/// state directory. On some machines Credential Manager refuses the write
+/// (#748) or drops the entries during a restart (#815); the sealed copy then
+/// serves instead. Every save writes both, and sign-out deletes both.
+#[cfg(any(windows, test))]
+struct WithSealedCopy<P, C> {
+    primary: P,
+    copy: C,
+}
+
+#[cfg(any(windows, test))]
+impl<P: ProtectedStore, C: ProtectedStore> ProtectedStore for WithSealedCopy<P, C> {
+    fn read(&mut self, key: &str) -> Result<Option<Vec<u8>>, Error> {
+        let primary = self.primary.read(key);
+        if let Ok(Some(secret)) = &primary {
+            // A grant saved before the copy existed gains one here, so it
+            // survives the next time the native store loses it.
+            if !matches!(self.copy.read(key), Ok(Some(copy)) if copy == *secret)
+                && let Err(error) = self.copy.write(key, secret)
+            {
+                log::warn!("could not keep a sealed copy of the grant: {error:?}");
+            }
+            return primary;
+        }
+        match self.copy.read(key) {
+            Ok(Some(secret)) => {
+                log::info!(
+                    "credential store {}; using the sealed copy",
+                    if primary.is_ok() {
+                        "no longer has the grant"
+                    } else {
+                        "is unavailable"
+                    }
+                );
+                Ok(Some(secret))
+            }
+            Ok(None) => primary,
+            // The native store's own error says more, when it has one.
+            Err(error) => primary.and(Err(error)),
+        }
+    }
+
+    fn write(&mut self, key: &str, secret: &[u8]) -> Result<(), Error> {
+        let primary = self.primary.write(key, secret);
+        if primary.is_err() {
+            // An older grant left there must not shadow the new copy.
+            let _ = self.primary.delete(key);
+        }
+        let copy = self.copy.write(key, secret);
+        if let Err(error) = copy {
+            log::warn!("could not write the sealed copy of the grant: {error:?}");
+            // Nor may an older copy outlive the grant that replaced it.
+            let _ = self.copy.delete(key);
+        }
+        match (primary, copy) {
+            (Err(error), Err(_)) => Err(error),
+            _ => Ok(()),
+        }
+    }
+
+    fn delete(&mut self, key: &str) -> Result<(), Error> {
+        let primary = self.primary.delete(key);
+        let copy = self.copy.delete(key);
+        primary.and(copy)
+    }
+}
+
+/// Encrypts a secret so only the current user can decrypt it. `context` is
+/// bound to the result: a sealed grant opens only under its own key.
+#[cfg(any(windows, test))]
+trait Sealer: Send {
+    fn seal(&self, secret: &[u8], context: &[u8]) -> Result<Vec<u8>, Error>;
+    fn open(&self, sealed: &[u8], context: &[u8]) -> Result<Vec<u8>, Error>;
+}
+
+/// Sealed grants, one file per key, replaced whole on every write.
+#[cfg(any(windows, test))]
+struct SealedFiles<S> {
+    dir: PathBuf,
+    sealer: S,
+}
+
+#[cfg(any(windows, test))]
+impl<S> SealedFiles<S> {
+    const MAGIC: &'static [u8] = b"spotifast-sealed-grant-1\n";
+
+    fn path(&self, key: &str) -> PathBuf {
+        // Keys are "<hex profile>:<slot name>"; ':' cannot name a Windows file.
+        self.dir.join(format!("{}.sealed", key.replace(':', ".")))
+    }
+
+    fn context(key: &str) -> Vec<u8> {
+        format!("{SERVICE}\n{key}").into_bytes()
+    }
+}
+
+#[cfg(any(windows, test))]
+impl<S: Sealer> ProtectedStore for SealedFiles<S> {
+    fn read(&mut self, key: &str) -> Result<Option<Vec<u8>>, Error> {
+        let bytes = match std::fs::read(self.path(key)) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(Error::Filesystem),
+        };
+        let sealed = bytes.strip_prefix(Self::MAGIC).ok_or(Error::Invalid)?;
+        self.sealer.open(sealed, &Self::context(key)).map(Some)
+    }
+
+    fn write(&mut self, key: &str, secret: &[u8]) -> Result<(), Error> {
+        let mut bytes = Self::MAGIC.to_vec();
+        bytes.extend(self.sealer.seal(secret, &Self::context(key))?);
+        fastframe_file::write_private(&self.path(key), bytes).map_err(|_| Error::Filesystem)
+    }
+
+    fn delete(&mut self, key: &str) -> Result<(), Error> {
+        remove_file(&self.path(key))
+    }
+}
+
+/// DPAPI with the user's own key: the copy opens only for this Windows user.
+#[cfg(windows)]
+struct Dpapi;
+
+#[cfg(windows)]
+impl Dpapi {
+    fn transform(input: &[u8], context: &[u8], seal: bool) -> Result<Vec<u8>, Error> {
+        use windows_sys::Win32::Foundation::{GetLastError, LocalFree};
+        use windows_sys::Win32::Security::Cryptography::{
+            CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData, CryptUnprotectData,
+        };
+        let blob = |bytes: &[u8]| -> Result<CRYPT_INTEGER_BLOB, Error> {
+            Ok(CRYPT_INTEGER_BLOB {
+                cbData: u32::try_from(bytes.len()).map_err(|_| Error::Invalid)?,
+                pbData: bytes.as_ptr().cast_mut(),
+            })
+        };
+        let input = blob(input)?;
+        let entropy = blob(context)?;
+        let mut output = CRYPT_INTEGER_BLOB {
+            cbData: 0,
+            pbData: std::ptr::null_mut(),
+        };
+        // SAFETY: the input blobs borrow live slices that DPAPI only reads,
+        // and on success `output` is a LocalAlloc buffer of `cbData` bytes
+        // that is copied and then freed exactly once.
+        unsafe {
+            let ok = if seal {
+                CryptProtectData(
+                    &input,
+                    std::ptr::null(),
+                    &entropy,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    CRYPTPROTECT_UI_FORBIDDEN,
+                    &mut output,
+                )
+            } else {
+                CryptUnprotectData(
+                    &input,
+                    std::ptr::null_mut(),
+                    &entropy,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    CRYPTPROTECT_UI_FORBIDDEN,
+                    &mut output,
+                )
+            };
+            if ok == 0 || output.pbData.is_null() {
+                let code = GetLastError();
+                log::warn!(
+                    "sealed grant {} failed (Windows error code {code})",
+                    if seal { "encryption" } else { "decryption" }
+                );
+                return Err(if seal {
+                    Error::Unavailable
+                } else {
+                    Error::Invalid
+                });
+            }
+            let length = output.cbData as usize;
+            let bytes = std::slice::from_raw_parts(output.pbData, length).to_vec();
+            // Do not leave a decrypted grant behind in freed memory.
+            std::ptr::write_bytes(output.pbData, 0, length);
+            LocalFree(output.pbData.cast());
+            Ok(bytes)
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Sealer for Dpapi {
+    fn seal(&self, secret: &[u8], context: &[u8]) -> Result<Vec<u8>, Error> {
+        Self::transform(secret, context, true)
+    }
+    fn open(&self, sealed: &[u8], context: &[u8]) -> Result<Vec<u8>, Error> {
+        Self::transform(sealed, context, false)
+    }
+}
+
 type Job = Box<dyn FnOnce(&mut dyn ProtectedStore) + Send>;
 
 struct Inner {
@@ -365,7 +564,17 @@ pub struct Loaded {
 
 impl Store {
     pub fn new(dirs: AppDirs) -> Self {
-        Self::with_backend(dirs, Box::new(NativeStore::default()))
+        #[cfg(windows)]
+        let backend = Box::new(WithSealedCopy {
+            primary: NativeStore::default(),
+            copy: SealedFiles {
+                dir: dirs.state.join("credential-storage"),
+                sealer: Dpapi,
+            },
+        });
+        #[cfg(not(windows))]
+        let backend = Box::new(NativeStore::default());
+        Self::with_backend(dirs, backend)
     }
 
     #[cfg(test)]
@@ -1159,6 +1368,238 @@ mod tests {
                     .is_none()
             );
         }
+    }
+
+    /// Stands in for DPAPI: reversible, and opens only under its own context.
+    struct TestSealer;
+    impl Sealer for TestSealer {
+        fn seal(&self, secret: &[u8], context: &[u8]) -> Result<Vec<u8>, Error> {
+            let mut sealed = Sha256::digest(context).to_vec();
+            sealed.extend(secret.iter().map(|byte| byte ^ 0x5a));
+            Ok(sealed)
+        }
+        fn open(&self, sealed: &[u8], context: &[u8]) -> Result<Vec<u8>, Error> {
+            let secret = sealed
+                .strip_prefix(Sha256::digest(context).as_slice())
+                .ok_or(Error::Invalid)?;
+            Ok(secret.iter().map(|byte| byte ^ 0x5a).collect())
+        }
+    }
+
+    /// The Windows arrangement: a native store, here the fake, and sealed
+    /// files in the fixture's state directory.
+    fn sealed_backend(f: &Fixture) -> Box<dyn ProtectedStore> {
+        Box::new(WithSealedCopy {
+            primary: Backend(f.fake.clone()),
+            copy: sealed_files(f),
+        })
+    }
+    fn sealed_files(f: &Fixture) -> SealedFiles<TestSealer> {
+        SealedFiles {
+            dir: f.dirs.state.join("credential-storage"),
+            sealer: TestSealer,
+        }
+    }
+    fn with_sealed_copy(f: &Fixture) -> Store {
+        Store::with_backend(f.dirs.clone(), sealed_backend(f))
+    }
+
+    #[test]
+    fn sealed_files_round_trip_without_plaintext_on_disk() {
+        let f = Fixture::new();
+        let mut files = sealed_files(&f);
+        let key = f.store.lease(Slot::Shared).key();
+        assert_eq!(files.read(&key), Ok(None));
+        files.write(&key, b"dummy-sealed-grant").unwrap();
+        assert_eq!(
+            files.read(&key).unwrap().as_deref(),
+            Some(b"dummy-sealed-grant".as_slice())
+        );
+        let path = files.path(&key);
+        let on_disk = std::fs::read(&path).unwrap();
+        assert!(!on_disk.windows(18).any(|w| w == b"dummy-sealed-grant"));
+        assert!(!path.file_name().unwrap().to_string_lossy().contains(':'));
+        // A copy moved to another key does not open there.
+        let other = f.store.lease(Slot::Personal).key();
+        std::fs::write(files.path(&other), &on_disk).unwrap();
+        assert_eq!(files.read(&other), Err(Error::Invalid));
+        std::fs::write(&path, b"not a sealed grant").unwrap();
+        assert_eq!(files.read(&key), Err(Error::Invalid));
+        files.delete(&key).unwrap();
+        files.delete(&key).unwrap();
+        assert_eq!(files.read(&key), Ok(None));
+    }
+
+    /// Credential Manager refuses every write on some machines (#748).
+    #[tokio::test]
+    async fn a_refused_native_write_is_remembered_by_the_sealed_copy() {
+        let f = Fixture::new();
+        f.fake.lock().unwrap().write_error = Some(Error::Unavailable);
+        let store = with_sealed_copy(&f);
+        let grants = [
+            web(crate::auth::DEFAULT_WEB_CLIENT_ID),
+            web("dummy-personal-client"),
+            playback(),
+            proxy_password(),
+        ];
+        for (slot, grant) in Slot::ALL.into_iter().zip(grants.iter()) {
+            store.lease(slot).save(grant.clone()).await.unwrap();
+        }
+        assert!(f.fake.lock().unwrap().values.is_empty());
+        let restarted = with_sealed_copy(&f);
+        for (slot, grant) in Slot::ALL.into_iter().zip(grants) {
+            let loaded = restarted.lease(slot).load().await.unwrap();
+            assert!(loaded.grant == Some(grant));
+            assert_eq!(loaded.warning, None);
+        }
+    }
+
+    /// Credential Manager keeps the entries until Windows restarts, then
+    /// drops them (#815).
+    #[tokio::test]
+    async fn a_grant_the_native_store_loses_comes_back_from_the_sealed_copy() {
+        let f = Fixture::new();
+        let grant = web(crate::auth::DEFAULT_WEB_CLIENT_ID);
+        let store = with_sealed_copy(&f);
+        store.lease(Slot::Shared).save(grant.clone()).await.unwrap();
+        assert_eq!(f.fake.lock().unwrap().values.len(), 1);
+        f.fake.lock().unwrap().values.clear();
+        assert!(
+            with_sealed_copy(&f)
+                .lease(Slot::Shared)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                == Some(grant.clone())
+        );
+        // An unavailable native store does not hide the copy either.
+        f.fake.lock().unwrap().read_error = Some(Error::Locked);
+        assert!(
+            with_sealed_copy(&f)
+                .lease(Slot::Shared)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                == Some(grant)
+        );
+    }
+
+    /// Grants saved before the sealed copy existed gain one on load, and
+    /// then survive the native store losing them.
+    #[tokio::test]
+    async fn native_only_grants_gain_a_sealed_copy_on_load() {
+        let f = Fixture::new();
+        let grant = playback();
+        f.store
+            .lease(Slot::Playback)
+            .save(grant.clone())
+            .await
+            .unwrap();
+        let key = f.store.lease(Slot::Playback).key();
+        assert!(!sealed_files(&f).path(&key).exists());
+        assert!(
+            with_sealed_copy(&f)
+                .lease(Slot::Playback)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                == Some(grant.clone())
+        );
+        assert!(sealed_files(&f).path(&key).exists());
+        f.fake.lock().unwrap().values.clear();
+        assert!(
+            with_sealed_copy(&f)
+                .lease(Slot::Playback)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                == Some(grant)
+        );
+    }
+
+    /// A refused write must not leave the older native entry to win the
+    /// next read over the newer copy.
+    #[tokio::test]
+    async fn a_refused_native_write_drops_the_older_native_entry() {
+        let f = Fixture::new();
+        let store = with_sealed_copy(&f);
+        let old = web("dummy-old-personal-client");
+        let new = web("dummy-new-personal-client");
+        store.lease(Slot::Personal).save(old).await.unwrap();
+        f.fake.lock().unwrap().write_error = Some(Error::Unavailable);
+        store.lease(Slot::Personal).save(new.clone()).await.unwrap();
+        assert!(f.fake.lock().unwrap().values.is_empty());
+        assert!(
+            with_sealed_copy(&f)
+                .lease(Slot::Personal)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                == Some(new)
+        );
+    }
+
+    #[tokio::test]
+    async fn the_native_error_stands_when_neither_store_keeps_the_grant() {
+        let f = Fixture::new();
+        f.fake.lock().unwrap().write_error = Some(Error::Locked);
+        // A file where the copies' directory should be makes their writes fail.
+        std::fs::write(f.dirs.state.join("credential-storage"), b"not a directory").unwrap();
+        let store = with_sealed_copy(&f);
+        assert_eq!(
+            store
+                .lease(Slot::Shared)
+                .save(web(crate::auth::DEFAULT_WEB_CLIENT_ID))
+                .await,
+            Err(Error::Locked)
+        );
+    }
+
+    #[tokio::test]
+    async fn sign_out_deletes_the_sealed_copy_too() {
+        let f = Fixture::new();
+        let store = with_sealed_copy(&f);
+        let lease = store.lease(Slot::Shared);
+        lease
+            .save(web(crate::auth::DEFAULT_WEB_CLIENT_ID))
+            .await
+            .unwrap();
+        let path = sealed_files(&f).path(&lease.key());
+        assert!(path.exists());
+        store.revoke_spotify().unwrap();
+        lease.delete().await.unwrap();
+        assert!(!path.exists());
+        assert!(f.fake.lock().unwrap().values.is_empty());
+        // A grant signed in again after the revocation is restored as usual.
+        let grant = web(crate::auth::DEFAULT_WEB_CLIENT_ID);
+        store.lease(Slot::Shared).save(grant.clone()).await.unwrap();
+        f.fake.lock().unwrap().values.clear();
+        assert!(
+            with_sealed_copy(&f)
+                .lease(Slot::Shared)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                == Some(grant)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn dpapi_seals_for_this_user_and_this_key_only() {
+        let sealed = Dpapi.seal(b"dummy-dpapi-grant", b"context-a").unwrap();
+        assert!(!sealed.windows(17).any(|w| w == b"dummy-dpapi-grant"));
+        assert_eq!(
+            Dpapi.open(&sealed, b"context-a").unwrap(),
+            b"dummy-dpapi-grant"
+        );
+        assert_eq!(Dpapi.open(&sealed, b"context-b"), Err(Error::Invalid));
     }
 
     #[tokio::test]

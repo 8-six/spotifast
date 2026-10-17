@@ -17,9 +17,10 @@ current release.
 - **Spotify sign-ins.** The grants Spotify issues when you sign in, and the
   reusable playback credential, are kept in the system credential store:
   Credential Manager on Windows, Keychain on macOS, and Secret Service on
-  Linux. Your Spotify password never passes through Spotifast; you sign in
-  on Spotify's own pages. A proxy password, if you set one, uses the same
-  store.
+  Linux. On Windows a copy encrypted for your Windows account also stays in
+  the data folder, for when Credential Manager loses it. Your Spotify
+  password never passes through Spotifast; you sign in on Spotify's own
+  pages. A proxy password, if you set one, uses the same store.
 - **Settings and history.** Settings, window positions, recent plays, the
   last session, skins, themes and MilkDrop presets live in the config
   directory.

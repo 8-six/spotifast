@@ -170,8 +170,11 @@ out, or a reconnection that gives up stops it.
 - Since 0.8.0, shared and personal Web API grants
   and the reusable playback credential use the platform credential store:
   Secret Service on Linux, Keychain on macOS, and Credential Manager on
-  Windows. Librespot retains its reusable credential in memory; Spotifast
-  owns persistence. Flatpak can talk to `org.freedesktop.secrets` for this.
+  Windows, where a copy encrypted for the Windows account with the Data
+  Protection API also stays in the data folder for when Credential Manager
+  refuses or loses a grant. Librespot retains its reusable credential in
+  memory; Spotifast owns persistence. Flatpak can talk to
+  `org.freedesktop.secrets` for this.
   Version 0.7.1 still uses the older unencrypted files.
   See [migration, sign-out, and storage protection](/settings-and-files/).
 - Downloaded audio and artwork, in the cache directory, within the budget

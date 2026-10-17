@@ -63,6 +63,14 @@ only until you sign out of Windows, Spotifast saves it again with Local
 persistence, which also survives a restart. Failures are logged with their
 Windows error code, never with the grant.
 
+Since 0.13.4, Spotifast on Windows also keeps a copy of each grant in
+`credential-storage\` in the data folder, encrypted with the Windows Data
+Protection API so that only your Windows account can read it. Every save
+writes both, and sign-out deletes both. The copy is read only when Credential
+Manager refuses the grant or no longer has it, as on machines where the
+entries disappear during a restart. Grants saved by earlier versions gain
+their copy the next time Spotifast starts.
+
 On upgrade, each legacy grant is written to the protected store and read back
 before its old file is removed. Valid grants migrate without signing in again.
 If Spotify rejects a saved refresh grant, only that grant is forgotten so the
