@@ -400,6 +400,8 @@ pub struct App {
     /// it plays if music played then or plays now.
     activating_play: bool,
     pub devices_loading: bool,
+    /// This computer's audio outputs, listed when the device picker asks.
+    pub output_devices: Loadable<Vec<String>>,
     devices_fetched_at: Option<Instant>,
     pub selected_device: Option<String>,
     pub queue: Loadable<Queue>,
@@ -947,6 +949,7 @@ impl App {
             activating_receiver: None,
             activating_play: false,
             devices_loading: false,
+            output_devices: Loadable::NotLoaded,
             devices_fetched_at: None,
             selected_device: None,
             queue: if session.last_track.is_some() && !session.last_queue_rows.is_empty() {
@@ -2156,6 +2159,15 @@ impl App {
                     }
                 }
                 Event::Receivers(receivers) => self.receivers = receivers,
+                Event::OutputDevices(result) => {
+                    self.output_devices = match result {
+                        Ok(names) => Loadable::Loaded(names),
+                        Err(error) => {
+                            log::warn!("couldn't list audio outputs: {error}");
+                            Loadable::Failed(error)
+                        }
+                    };
+                }
                 Event::ReceiverActivated { name, result } => {
                     self.activating_receiver = None;
                     match result {
@@ -10619,6 +10631,24 @@ impl App {
             Action::SettingsChanged => {
                 self.settings_dirty = true;
                 ctx.set_theme(self.theme_preference());
+            }
+            Action::ListOutputDevices => {
+                // An earlier list stays on screen until the new one arrives.
+                if !self.output_devices.is_loading() {
+                    if self.output_devices.get().is_none() {
+                        self.output_devices = Loadable::Loading;
+                    }
+                    self.backend.send(Command::ListOutputDevices);
+                }
+            }
+            Action::SetAudioDevice(device) => {
+                if self.settings.audio_device != device {
+                    self.settings.audio_device = device;
+                    self.mark_settings_dirty();
+                    // The output is chosen when local playback starts, so
+                    // it restarts on the new one, keeping its place.
+                    self.apply(Action::RestartEngine, ctx);
+                }
             }
             Action::RestartEngine => {
                 self.save_settings();

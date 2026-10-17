@@ -261,6 +261,7 @@ main fields are:
 | `autoplay` | `true` | Keep playing similar music at the end |
 | `gapless` | `true` | Gapless playback |
 | `audio_backend` | platform | `pulseaudio` or `rodio` on Linux. `rodio` is Spotifast's own output, through ALSA; librespot's separate rodio backend is no longer built in, and a backend this build lacks plays through Spotifast's own output |
+| `audio_device` | `null` | The output local playback uses, by the name **Audio output** in the device picker lists; `null` is the system default. A device that is not there plays through the default. With the `pulseaudio` backend it names a PulseAudio sink instead, and the picker does not list outputs |
 | `audio_cache_mb` | `1024` | On-disk audio cache budget |
 | `theme` | `system` | Follow the system appearance by default; explicit `dark` and `light` choices remain available |
 | `language` | `system` | Since 0.10.0: the interface language. `system` follows the operating system's preferred languages and falls back to English; a tag such as `es`, `de-DE`, `pt-BR` or `zh-Hant` selects that language. An unknown tag follows the system |
@@ -342,7 +343,7 @@ settings.
 
 `--demo-page` opens a page, such as `home`, `playlist:pl1`, or `artist:art0`,
 and `--demo-show` adds surfaces on top of it: a comma separated list of
-`queue`, `playing-next`, `devices`, `shortcuts`, `premium`, `create`, `duplicate`, `light`,
+`queue`, `playing-next`, `devices`, `audio-outputs`, `shortcuts`, `premium`, `create`, `duplicate`, `light`,
 `focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`,
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
@@ -352,7 +353,8 @@ a normal, narrow, or wide sidebar and collapsed artwork for matching captures.
 `shuffle-selected` and `shuffle-started` capture the selected-mode and
 playback-started outcomes of a collection Shuffle click. `update` shows a sample
 update badge for checking its layout. `personal-app` shows the personal Spotify
-app introduction.
+app introduction. `audio-outputs` opens the device picker with sample audio
+outputs to choose from, as Spotifast's own output lists them.
 `signed-out` and `connecting` show the sign-in card before and while the
 session connects.
 `player-bar-spectrum` and `player-bar-waveform` play a fixed, music-like

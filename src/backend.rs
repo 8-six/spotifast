@@ -602,6 +602,8 @@ struct PlaylistCacheWrite {
 
 pub enum Command {
     OpenThemesFolder,
+    /// Read the names of this computer's audio outputs, off the UI thread.
+    ListOutputDevices,
     ProxyRestored {
         lease: CredentialLease,
         result: Result<crate::credentials::Loaded, crate::credentials::Error>,
@@ -867,6 +869,8 @@ pub enum Event {
     Playback(LocalPlayback),
     /// Receivers seen on the local network that Spotify has not listed.
     Receivers(Vec<crate::zeroconf::Receiver>),
+    /// This computer's audio outputs, by name, for the device picker.
+    OutputDevices(Result<Vec<String>, String>),
     ReceiverActivated {
         name: String,
         result: Result<(), String>,
@@ -1890,6 +1894,18 @@ impl Worker {
                 continue;
             }
             match command {
+                Command::ListOutputDevices => {
+                    let events = self.events.clone();
+                    let waker = self.waker.clone();
+                    // Listing asks the sound system about every device,
+                    // which can take a moment; nothing is opened.
+                    tokio::task::spawn_blocking(move || {
+                        let names = fastframe_audio::output_device_names()
+                            .map_err(|error| error.to_string());
+                        let _ = events.send(Event::OutputDevices(names));
+                        waker.wake();
+                    });
+                }
                 Command::OpenThemesFolder => {
                     let directory = self.dirs.config.join("themes");
                     let events = self.events.clone();

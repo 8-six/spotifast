@@ -612,6 +612,14 @@ impl Settings {
         }
     }
 
+    /// Whether local playback plays through Spotifast's own output, whose
+    /// device `audio_device` names, rather than a librespot backend such as
+    /// PulseAudio, where the desktop's sound settings choose the output.
+    pub fn uses_own_output(&self) -> bool {
+        self.platform_backend()
+            .is_none_or(|backend| backend == crate::sink::NAME)
+    }
+
     pub fn platform_backend(&self) -> Option<String> {
         self.audio_backend.clone().or_else(|| {
             if cfg!(target_os = "linux") {

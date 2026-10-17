@@ -997,6 +997,22 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                 }
             }
             "devices" => app.show_devices = true,
+            // The device picker's audio outputs, as Spotifast's own output
+            // lists them: Linux's default PulseAudio backend has none.
+            "audio-outputs" => {
+                app.show_devices = true;
+                app.settings.audio_backend = Some(crate::sink::NAME.into());
+                app.output_devices = Loadable::Loaded(
+                    [
+                        "Speakers (Realtek High Definition Audio)",
+                        "VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)",
+                        "VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)",
+                        "LG TV (NVIDIA High Definition Audio)",
+                    ]
+                    .map(String::from)
+                    .to_vec(),
+                );
+            }
             "sonos-idle" => sonos_devices(app, false),
             "sonos-active" => sonos_devices(app, true),
             // The phone plays instead of the speaker, for captures of how
@@ -9949,6 +9965,61 @@ mod tests {
         }
         app.backend.shutdown();
     }
+    /// The device popup lists this computer's audio outputs on request and
+    /// writes the chosen one to `audio_device`; System default clears it.
+    /// Linux's PulseAudio backend chooses its output in the desktop's sound
+    /// settings, so there is no list then (#963).
+    #[test]
+    fn the_device_popup_chooses_this_computers_audio_output() {
+        use egui::accesskit::{Action as AccessibleAction, Role};
+        let (ctx, mut app) = accessible_app("audio-outputs");
+        app.show_devices = true;
+        app.settings.audio_backend = Some(crate::sink::NAME.into());
+        app.settings.audio_device = None;
+        app.output_devices = Loadable::Loaded(vec![
+            "Speakers (Realtek High Definition Audio)".into(),
+            "VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)".into(),
+        ]);
+        let click = |ctx: &egui::Context, app: &mut App, label: &str| {
+            let tree = accessible_frame(ctx, app, vec![]);
+            let node = accessible_node(&tree, label, Role::Button);
+            accessible_frame(
+                ctx,
+                app,
+                vec![accessible_action(node, AccessibleAction::Click, None)],
+            );
+        };
+        let listed = |ctx: &egui::Context, app: &mut App, label: &str| {
+            accessible_frame(ctx, app, vec![])
+                .nodes
+                .iter()
+                .any(|(_, node)| node.label() == Some(label))
+        };
+        let voicemeeter = "VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)";
+        accessible_frame(&ctx, &mut app, vec![]);
+        assert!(
+            !listed(&ctx, &mut app, voicemeeter),
+            "listed only on request"
+        );
+        click(&ctx, &mut app, "Audio output");
+        assert!(listed(&ctx, &mut app, "System default"));
+        assert!(
+            app.output_devices.get().is_some(),
+            "an earlier list stays while it is read again"
+        );
+        click(&ctx, &mut app, voicemeeter);
+        accessible_frame(&ctx, &mut app, vec![]);
+        assert_eq!(app.settings.audio_device.as_deref(), Some(voicemeeter));
+        click(&ctx, &mut app, "System default");
+        accessible_frame(&ctx, &mut app, vec![]);
+        assert_eq!(app.settings.audio_device, None);
+
+        app.settings.audio_backend = Some("pulseaudio".into());
+        assert!(!app.settings.uses_own_output());
+        assert!(!listed(&ctx, &mut app, "Audio output"));
+        app.backend.shutdown();
+    }
+
     /// Clicking a page's header cover shows Spotify's largest artwork, and a
     /// click on it, a click beside it, or Esc closes it (#586). Liked Songs'
     /// drawn cover has nothing to enlarge.

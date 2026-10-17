@@ -548,6 +548,21 @@ On Windows, the main window's minimize, maximize, and close buttons share the
 top bar with Spotifast's controls. Drag an empty part of that bar to move or
 snap the window, and drag a window edge or corner to resize it.
 
+## Choosing the audio output
+
+**Audio output**, at the bottom of the device picker, chooses where music
+played on this computer goes: the system's default output, or a sound card,
+headset, HDMI output, or virtual device such as VoiceMeeter. Click it to list
+this computer's outputs, then pick one; local playback restarts on it at the
+same place in the song. **System default** follows the system again. The
+choice is saved as `audio_device` in `settings.json`. While a saved output is
+unplugged, music plays through the system default, and the output stays
+listed so you can see and change the choice.
+
+On Linux, Spotifast plays through PulseAudio (or PipeWire's PulseAudio
+service) by default, and the desktop's sound settings choose its output, so
+the picker shows **Audio output** only when `audio_backend` is `rodio`.
+
 ## Google Cast playback
 
 Google Cast speakers and speaker groups appear in the device picker. Enable

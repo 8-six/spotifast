@@ -170,6 +170,118 @@ fn receiver_row(app: &mut App, ui: &mut egui::Ui, receiver: &crate::zeroconf::Re
     }
 }
 
+/// Where this computer plays: the system's default output or a device by
+/// name, written to `audio_device` (#963). Choosing one restarts local
+/// playback on it. Listed only when asked, so the popup opens at once.
+fn output_picker(app: &mut App, ui: &mut egui::Ui) {
+    let palette = app.palette;
+    let locale = app.locale;
+    let open_id = ui.make_persistent_id("audio-output-open");
+    let mut open = ui.data(|data| data.get_temp::<bool>(open_id).unwrap_or(false));
+    super::widgets::menu_separator(ui, &palette);
+    let system_default = gettext(locale, "System default").into_owned();
+    let label = gettext(locale, "Audio output");
+    let current = app.settings.audio_device.clone();
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 44.0), Sense::click());
+    response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label.as_ref()));
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, CornerRadius::same(6), palette.surface_hover);
+    }
+    Icon::Volume2.image(palette.secondary, 18.0).paint_at(
+        ui,
+        Rect::from_center_size(
+            pos2(rect.left() + 24.0, rect.center().y),
+            egui::Vec2::splat(18.0),
+        ),
+    );
+    let painter = ui.painter().with_clip_rect(rect);
+    painter.text(
+        pos2(rect.left() + 48.0, rect.center().y - 8.0),
+        egui::Align2::LEFT_CENTER,
+        label.as_ref(),
+        theme::medium(13.0),
+        palette.text,
+    );
+    crate::bidi::paint_line(
+        &painter,
+        rect.left() + 48.0,
+        rect.right() - 36.0,
+        rect.center().y + 9.0,
+        current.as_deref().unwrap_or(&system_default),
+        theme::regular(12.0),
+        palette.secondary,
+    );
+    if open {
+        Icon::ChevronUp
+    } else {
+        Icon::ChevronDown
+    }
+    .image(palette.secondary, 16.0)
+    .paint_at(
+        ui,
+        Rect::from_center_size(
+            pos2(rect.right() - 18.0, rect.center().y),
+            egui::Vec2::splat(16.0),
+        ),
+    );
+    if response.clicked() {
+        open = !open;
+        if open {
+            app.actions.push(Action::ListOutputDevices);
+        }
+    }
+    ui.data_mut(|data| data.insert_temp(open_id, open));
+    if !open {
+        return;
+    }
+    match &app.output_devices {
+        crate::model::Loadable::Loaded(names) => {
+            let mut choices: Vec<Option<String>> = vec![None];
+            choices.extend(names.iter().cloned().map(Some));
+            // A saved device that is unplugged stays listed, so the choice
+            // shows and can be changed.
+            if current.as_ref().is_some_and(|name| !names.contains(name)) {
+                choices.push(current.clone());
+            }
+            // As tall as its rows, up to six; the popup grows upwards from
+            // the button, so the list asks for its height rather than taking
+            // what last frame's popup left below it.
+            let height = (choices.len() as f32 * 34.0).min(204.0);
+            egui::ScrollArea::vertical()
+                .id_salt("audio-outputs")
+                .max_height(height)
+                .min_scrolled_height(height)
+                .show(ui, |ui| {
+                    for choice in choices {
+                        let selected = choice == current;
+                        let name = choice.clone().unwrap_or_else(|| system_default.clone());
+                        if super::widgets::menu_item(
+                            ui,
+                            &palette,
+                            Some(if selected { Icon::Check } else { Icon::Speaker }),
+                            &name,
+                        ) && !selected
+                        {
+                            app.actions.push(Action::SetAudioDevice(choice));
+                        }
+                    }
+                });
+        }
+        crate::model::Loadable::Failed(_) => {
+            theme::subtle(
+                ui,
+                &palette,
+                &gettext(locale, "Couldn't list this computer's audio outputs."),
+            );
+        }
+        _ => {
+            theme::subtle(ui, &palette, &gettext(locale, "Finding audio outputs…"));
+        }
+    }
+}
+
 pub fn popup(app: &mut App, ctx: &egui::Context) {
     if !app.show_devices {
         return;
@@ -374,6 +486,9 @@ pub fn popup(app: &mut App, ctx: &egui::Context) {
                         }
                     },
                 );
+                if app.local_ready && app.settings.uses_own_output() {
+                    output_picker(app, ui);
+                }
             });
         });
     let popup_rect = area.response.rect;

@@ -1158,6 +1158,10 @@ pub enum Action {
     /// Send the account to a receiver found on the local network.
     ActivateReceiver(Box<crate::zeroconf::Receiver>),
     RefreshDevices,
+    /// List this computer's audio outputs for the device picker.
+    ListOutputDevices,
+    /// Play through this output, by name; `None` is the system default.
+    SetAudioDevice(Option<String>),
     /// Empty Next up of its queued songs, keeping the context's own.
     ClearQueue,
     /// Save the current and upcoming queue as a playlist.
