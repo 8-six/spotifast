@@ -168,7 +168,7 @@ pub async fn prerelease(
         let query = serde_json::json!({
             "operationName":"getAlbum",
             "variables":{"uri":page.album.uri,"locale":"","offset":offset,"limit":50},
-            "extensions":{"persistedQuery":{"version":1,"sha256Hash":"b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10"}}
+            "extensions":{"persistedQuery":{"version":1,"sha256Hash":GET_ALBUM_HASH}}
         });
         let body = web
             .partner_request(&login.access_token, &client_token, &query)
@@ -206,6 +206,106 @@ fn collection_headers() -> reqwest::header::HeaderMap {
     headers.insert(reqwest::header::CONTENT_TYPE, value.clone());
     headers.insert(reqwest::header::ACCEPT, value);
     headers
+}
+
+/// Spotify's persisted Pathfinder query for an album page.
+const GET_ALBUM_HASH: &str = "b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10";
+/// Spotify's persisted Pathfinder query for an artist page's overview.
+const ARTIST_OVERVIEW_HASH: &str =
+    "4bc52527bb77a5f8bbb9afe491e9aa725698d29ab73bff58d49169ee29800167";
+/// Songs per album page, as Spotify's own album view asks for them.
+const PLAY_COUNT_PAGE: usize = 50;
+/// No album runs longer; a page that never ends stops here.
+const MAX_PLAY_COUNT_ROWS: usize = 1000;
+
+/// Spotify's play count for each song of an album, or of an artist's
+/// popular songs, by track URI. Only the Pathfinder queries Spotify's own
+/// apps make carry them: the Web API has none. A song Spotify gives no
+/// count is left out, and the caller shows nothing for it.
+pub async fn play_counts(
+    session: &Session,
+    web: &crate::api::ApiClient,
+    uri: &str,
+) -> anyhow::Result<HashMap<String, u64>> {
+    let login = session.login5().auth_token().await?;
+    let client_token = session.spclient().client_token().await?;
+    let mut counts = HashMap::new();
+    match crate::util::uri_kind(uri) {
+        Some("album") => {
+            let mut offset = 0;
+            loop {
+                let query = serde_json::json!({
+                    "operationName": "getAlbum",
+                    "variables": {
+                        "uri": uri, "locale": "", "offset": offset, "limit": PLAY_COUNT_PAGE
+                    },
+                    "extensions": {
+                        "persistedQuery": {"version": 1, "sha256Hash": GET_ALBUM_HASH}
+                    }
+                });
+                let body = web
+                    .partner_request(&login.access_token, &client_token, &query)
+                    .await?;
+                let page = body
+                    .pointer("/data/albumUnion/tracksV2")
+                    .ok_or_else(|| anyhow::anyhow!("Spotify answered without the album's songs"))?;
+                let rows = play_counts_from(page, &mut counts);
+                let total = page
+                    .get("totalCount")
+                    .and_then(|total| total.as_u64())
+                    .unwrap_or(0);
+                offset += rows;
+                if rows == 0 || offset as u64 >= total || offset >= MAX_PLAY_COUNT_ROWS {
+                    break;
+                }
+            }
+        }
+        Some("artist") => {
+            let query = serde_json::json!({
+                "operationName": "queryArtistOverview",
+                "variables": {"uri": uri, "locale": "", "includePrerelease": false},
+                "extensions": {
+                    "persistedQuery": {"version": 1, "sha256Hash": ARTIST_OVERVIEW_HASH}
+                }
+            });
+            let body = web
+                .partner_request(&login.access_token, &client_token, &query)
+                .await?;
+            let top = body
+                .pointer("/data/artistUnion/discography/topTracks")
+                .ok_or_else(|| anyhow::anyhow!("Spotify answered without the popular songs"))?;
+            play_counts_from(top, &mut counts);
+        }
+        _ => anyhow::bail!("Spotify counts plays only for album and artist songs"),
+    }
+    Ok(counts)
+}
+
+/// Adds the counts of a Pathfinder list of `{track: {uri, playcount}}`
+/// rows, and says how many rows it held. Spotify sends each count as a
+/// string of digits.
+fn play_counts_from(list: &serde_json::Value, counts: &mut HashMap<String, u64>) -> usize {
+    let rows = list
+        .get("items")
+        .and_then(|items| items.as_array())
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    for row in rows {
+        let Some(track) = row.get("track") else {
+            continue;
+        };
+        let uri = track.get("uri").and_then(|uri| uri.as_str());
+        let count = track.get("playcount").and_then(|count| match count {
+            serde_json::Value::String(text) => text.parse::<u64>().ok(),
+            other => other.as_u64(),
+        });
+        if let (Some(uri), Some(count)) = (uri, count)
+            && uri.starts_with("spotify:track:")
+        {
+            counts.insert(uri.to_string(), count);
+        }
+    }
+    rows.len()
 }
 
 /// Whether this account has already pre-saved the album resolved from the countdown page.
@@ -1163,6 +1263,34 @@ fn iso8601(timestamp_ms: i64) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+
+    /// Pathfinder's counts arrive as strings of digits; rows without a
+    /// track URI or a count are left out, and every row counts toward the
+    /// page's length.
+    #[test]
+    fn play_counts_read_pathfinder_rows() {
+        let list = serde_json::json!({"items": [
+            {"track": {"uri": "spotify:track:a", "playcount": "10808862"}},
+            {"track": {"uri": "spotify:track:b", "playcount": 7}},
+            {"track": {"uri": "spotify:track:c"}},
+            {"track": {"uri": "spotify:episode:d", "playcount": "3"}},
+            {"track": {"playcount": "5"}},
+            {"uid": "no track"},
+        ]});
+        let mut counts = HashMap::new();
+        assert_eq!(super::play_counts_from(&list, &mut counts), 6);
+        assert_eq!(
+            counts,
+            HashMap::from([
+                ("spotify:track:a".to_string(), 10_808_862),
+                ("spotify:track:b".to_string(), 7),
+            ])
+        );
+        assert_eq!(
+            super::play_counts_from(&serde_json::json!({}), &mut counts),
+            0
+        );
+    }
 
     /// A lost reply is uncertain, including when the server accepted the write.
     /// HTTP errors and redirect responses must never resend the mutation either.

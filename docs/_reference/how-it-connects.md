@@ -48,6 +48,10 @@ local playback:
    private response can change without notice. Radio pages come only from
    this session: the Web API has no stations. Opening one resolves the
    station and reads its songs' details in one batched request.
+   Play counts on album pages and an artist's popular songs come from the
+   same Pathfinder queries Spotify's own album and artist pages make, with the
+   session's token and an already verified Web API grant. Each album or artist
+   is read once per run, and a read that fails leaves the column out.
 
 Local playback authorization stays separate from both Web API grants. Its
 browser approval requests only the streaming permission and always shows the

@@ -801,6 +801,7 @@ fn track_list(
                 added_at: None,
                 added_by: None,
                 show_added_by: false,
+                show_plays: false,
                 compact: false,
                 thin: app.settings.tracklist_compact,
                 shift: 0.0,

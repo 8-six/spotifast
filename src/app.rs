@@ -271,6 +271,18 @@ struct Listening {
     recorded: bool,
 }
 
+/// Where the play counts of one album or artist stand.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlayCountRead {
+    Asked,
+    Answered,
+    /// The read failed then; it is asked again after `PLAY_COUNT_RETRY`.
+    Failed(Instant),
+}
+
+/// How long a failed play count read waits before a visit asks again.
+const PLAY_COUNT_RETRY: Duration = Duration::from_secs(60);
+
 pub struct App {
     pub dirs: AppDirs,
     pub settings: Settings,
@@ -615,6 +627,11 @@ pub struct App {
     /// is asked about only once per run.
     pub user_names: HashMap<String, Option<String>>,
     pub user_names_revision: u64,
+    /// How often Spotify says each song was played, by track URI, for the
+    /// albums and artists in `play_count_reads`.
+    pub play_counts: HashMap<String, u64>,
+    /// Albums and artists whose play counts were asked for, by URI.
+    pub play_count_reads: HashMap<String, PlayCountRead>,
     /// User ids resolved to avatar picture urls, asked for alongside the
     /// names; `None` while unknown or when Spotify gives no picture.
     pub user_images: HashMap<String, Option<String>>,
@@ -1091,6 +1108,8 @@ impl App {
                 .filter_map(|(page, sort)| Some((Page::decode(page)?, *sort)))
                 .collect(),
             user_names: HashMap::new(),
+            play_counts: HashMap::new(),
+            play_count_reads: HashMap::new(),
             user_names_revision: 0,
             user_images: HashMap::new(),
             recent_contexts: session.recent_contexts.clone(),
@@ -2310,6 +2329,7 @@ impl App {
                     self.set_user_name(id.clone(), name);
                     self.set_user_image(id, image);
                 }
+                Event::PlayCounts { uri, result } => self.receive_play_counts(uri, result),
                 Event::AudiobookShows(uris) => {
                     self.audiobook_shows.extend(uris);
                 }
@@ -5784,6 +5804,43 @@ impl App {
             self.user_names.insert(id.clone(), None);
         }
         self.backend.send(Command::UserNames(unknown));
+    }
+
+    /// Asks once for the play counts of the album or artist `uri`, while
+    /// the playback session can read them. A read that failed is asked
+    /// again on a visit a minute later.
+    pub fn request_play_counts(&mut self, uri: &str) {
+        if !self.local_ready || !self.network_reachable {
+            return;
+        }
+        let due = match self.play_count_reads.get(uri) {
+            None => true,
+            Some(PlayCountRead::Failed(at)) => at.elapsed() >= PLAY_COUNT_RETRY,
+            Some(PlayCountRead::Asked | PlayCountRead::Answered) => false,
+        };
+        if due {
+            self.play_count_reads
+                .insert(uri.to_string(), PlayCountRead::Asked);
+            self.backend.send(Command::PlayCounts(uri.to_string()));
+        }
+    }
+
+    /// Whether Spotify's play counts for the album or artist `uri` arrived,
+    /// so its list shows them.
+    pub fn has_play_counts(&self, uri: &str) -> bool {
+        self.play_count_reads.get(uri) == Some(&PlayCountRead::Answered)
+    }
+
+    fn receive_play_counts(&mut self, uri: String, result: Result<HashMap<String, u64>, String>) {
+        let read = match result {
+            // An answer without a single count has nothing to show.
+            Ok(counts) if !counts.is_empty() => {
+                self.play_counts.extend(counts);
+                PlayCountRead::Answered
+            }
+            Ok(_) | Err(_) => PlayCountRead::Failed(Instant::now()),
+        };
+        self.play_count_reads.insert(uri, read);
     }
 
     fn request_album_types<'a>(&mut self, albums: impl IntoIterator<Item = &'a Album>) {
@@ -22296,6 +22353,42 @@ mod tests {
         assert!(matches!(app.target(), Target::Local));
         app.poll_remote_if_due();
         assert!(app.remote_poll_pending, "polled at once");
+    }
+
+    /// Play counts are asked for once, shown once they arrive, and a read
+    /// that failed is not asked again on every frame.
+    #[test]
+    fn play_counts_are_asked_once_and_shown_once_answered() {
+        let mut app = headless_app();
+        let album = "spotify:album:a";
+        app.network_reachable = true;
+        app.local_ready = false;
+        app.request_play_counts(album);
+        assert_eq!(app.play_count_reads.get(album), None);
+
+        app.local_ready = true;
+        app.request_play_counts(album);
+        assert_eq!(app.play_count_reads.get(album), Some(&PlayCountRead::Asked));
+        assert!(!app.has_play_counts(album));
+
+        app.receive_play_counts(album.into(), Err("unavailable".into()));
+        app.request_play_counts(album);
+        assert!(matches!(
+            app.play_count_reads.get(album),
+            Some(PlayCountRead::Failed(_))
+        ));
+        assert!(!app.has_play_counts(album));
+
+        app.receive_play_counts(
+            album.into(),
+            Ok(HashMap::from([("spotify:track:t".to_string(), 5)])),
+        );
+        assert!(app.has_play_counts(album));
+        assert_eq!(app.play_counts.get("spotify:track:t"), Some(&5));
+
+        // An answer with no counts shows no column.
+        app.receive_play_counts("spotify:artist:b".into(), Ok(HashMap::new()));
+        assert!(!app.has_play_counts("spotify:artist:b"));
     }
 
     #[test]

@@ -42,6 +42,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, id: &str) {
                     let items: Vec<PlayableItem> =
                         tracks.iter().cloned().map(PlayableItem::Track).collect();
                     let limit = if page.show_all_top { items.len() } else { 5 };
+                    app.request_play_counts(&artist.uri);
+                    let show_plays = app.has_play_counts(&artist.uri);
                     let render_top = |ui: &mut egui::Ui, app: &mut App| {
                         for (index, item) in items.iter().take(limit).enumerate() {
                             widgets::track_row(
@@ -57,6 +59,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, id: &str) {
                                     added_at: None,
                                     added_by: None,
                                     show_added_by: false,
+                                    show_plays,
                                     compact: false,
                                     thin: app.settings.tracklist_compact,
                                     shift: 0.0,

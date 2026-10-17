@@ -167,6 +167,7 @@ pub fn radio(app: &mut App, ui: &mut egui::Ui, seed: &str) {
             show_cover: true,
             show_added: false,
             show_added_by: false,
+            show_plays: false,
             page: key,
             loading: false,
             error: None,

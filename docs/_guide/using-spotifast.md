@@ -600,6 +600,14 @@ after the radio with the songs on the page.
 Radio comes from Spotify's playback service, so it needs playback on this
 computer to be set up; the page can then play on any device.
 
+## Play counts
+
+Album pages have a **Plays** column, and an artist's popular songs show
+how often each was played, as Spotify counts them. The counts come from
+Spotify's playback service, so they need playback on this computer to be
+set up. Without it, or when Spotify does not answer, the lists leave the
+counts out. The column needs a window wide enough for it.
+
 ## Upcoming albums
 
 Open a `spotify:prerelease:` URI or an `open.spotify.com/prerelease/` link

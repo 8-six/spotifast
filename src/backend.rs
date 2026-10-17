@@ -755,6 +755,9 @@ pub enum Command {
     },
     /// Resolve user ids to display names through the streaming session.
     UserNames(Vec<String>),
+    /// Read Spotify's play counts for an album's songs or an artist's
+    /// popular songs, by the album's or the artist's URI.
+    PlayCounts(String),
     LoadLikedSongsCache {
         generation: u64,
     },
@@ -928,6 +931,12 @@ pub enum Event {
         id: String,
         name: Option<String>,
         image: Option<String>,
+    },
+    /// Play counts by track URI for the album or artist `uri`, or why they
+    /// could not be read.
+    PlayCounts {
+        uri: String,
+        result: Result<std::collections::HashMap<String, u64>, String>,
     },
     /// Saved shows that Spotify's metadata marks as audiobooks. librespot
     /// cannot play them, so the Podcasts shelf leaves them out.
@@ -2416,6 +2425,7 @@ impl Worker {
                     }
                 }
                 Command::UserNames(ids) => self.fetch_user_names(ids),
+                Command::PlayCounts(uri) => self.fetch_play_counts(uri),
                 Command::LoadLikedSongsCache { generation } => {
                     if let Some(account) = self.api.account() {
                         let account_id = account.as_str().to_string();
@@ -4308,6 +4318,44 @@ impl Worker {
                 let _ = events.send(Event::UserName { id, name, image });
                 waker.wake();
             }
+        });
+    }
+
+    /// Ask Spotify how often each song of an album or each of an artist's
+    /// popular songs was played. It needs the playback session and a
+    /// verified Web API grant, as upcoming album pages do; without them the
+    /// lists simply show no counts.
+    fn fetch_play_counts(&self, uri: String) {
+        let events = self.events.clone();
+        let waker = self.waker.clone();
+        let send = move |uri, result| {
+            let _ = events.send(Event::PlayCounts { uri, result });
+            waker.wake();
+        };
+        let Some(engine) = self.engine.clone() else {
+            return send(uri, Err("Play counts need playback enabled.".into()));
+        };
+        let Some(web) = self.api.prerelease_http_client() else {
+            return send(uri, Err("Play counts need a signed-in account.".into()));
+        };
+        let mut cancelled = self.session.subscribe();
+        tokio::spawn(async move {
+            let read = tokio::time::timeout(
+                Duration::from_secs(15),
+                session_reads::play_counts(engine.session(), &web, &uri),
+            );
+            let result = tokio::select! {
+                biased;
+                // A later visit asks again.
+                _ = cancelled.changed() => Err("The playback session ended.".to_string()),
+                result = read => result
+                    .map_err(|_| "Spotify took too long to answer.".to_string())
+                    .and_then(|result| result.map_err(|error| format!("{error:#}"))),
+            };
+            if let Err(error) = &result {
+                log::debug!("Play counts unavailable: {error}");
+            }
+            send(uri, result);
         });
     }
 
