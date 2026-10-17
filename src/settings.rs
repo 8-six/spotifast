@@ -284,6 +284,11 @@ pub struct Settings {
         skip_serializing_if = "Option::is_none"
     )]
     pub system_theme_cache: Option<crate::theme::CustomTheme>,
+    /// The palettes Follow system shows in light and in dark mode, each with
+    /// its last accepted colours; empty slots are Spotifast's own Light and
+    /// Dark, as before this setting existed.
+    #[serde(skip_serializing_if = "fastframe_theme::Pair::is_default")]
+    pub theme_pair: crate::theme::ThemePair,
     pub home: HomeSettings,
     /// Tint the interface with the colour of the playing album's art.
     pub accent_from_art: bool,
@@ -471,6 +476,7 @@ impl Default for Settings {
             custom_theme: None,
             custom_theme_cache: None,
             system_theme_cache: None,
+            theme_pair: crate::theme::ThemePair::default(),
             home: HomeSettings::default(),
             accent_from_art: true,
             player_bar_vis: PlayerBarVis::Off,
@@ -555,7 +561,9 @@ impl Settings {
             .map(std::path::PathBuf::from)
     }
 
-    pub(crate) fn cached_palette(&self) -> Option<crate::theme::Palette> {
+    /// The one palette shown whatever the system's appearance: a chosen
+    /// palette file, or Omarchy's while Follow system follows it.
+    pub(crate) fn fixed_palette(&self) -> Option<crate::theme::Palette> {
         let theme = if self.custom_theme.is_some() {
             self.custom_theme_cache.as_ref()
         } else if self.theme == ThemeChoice::System {
@@ -564,6 +572,18 @@ impl Settings {
             None
         };
         theme.map(|theme| theme.palette)
+    }
+
+    /// The palette to show while the system is `dark` or light: the fixed
+    /// one, else Follow system's choice for that appearance. `None` leaves
+    /// Spotifast's own Light or Dark.
+    pub(crate) fn cached_palette(&self, dark: bool) -> Option<crate::theme::Palette> {
+        if let Some(palette) = self.fixed_palette() {
+            return Some(palette);
+        }
+        let base = fastframe_theme::Base::from_dark(dark);
+        (self.theme == ThemeChoice::System && self.theme_pair.slot(base).is_some())
+            .then(|| self.theme_pair.palette(base))
     }
 
     pub(crate) fn proxy_password_record(
@@ -1115,6 +1135,72 @@ mod tests {
         assert_eq!(recovered.custom_theme.as_deref(), Some("gruvbox.json"));
         assert_eq!(recovered.audio_cache_mb, 777);
         assert!(recovered.custom_theme_cache.is_none());
+    }
+
+    /// Settings from before the light and dark pair keep their look, and
+    /// write no pair until one is chosen (#619).
+    #[test]
+    fn follow_system_pairs_load_old_settings_unchanged_and_round_trip() {
+        use super::ThemeChoice;
+        use crate::theme::{CustomTheme, Palette};
+        use fastframe_theme::Base;
+        let mut nord = Palette::dark();
+        nord.accent = egui::Color32::from_rgb(0x88, 0xc0, 0xd0);
+        let cache = serde_json::to_value(CustomTheme {
+            filename: "Nord.json".into(),
+            palette: nord,
+        })
+        .unwrap();
+        // One custom palette, with Follow system underneath: still Nord in
+        // light and dark mode alike.
+        let single: Settings = serde_json::from_value(serde_json::json!({
+            "theme": "system", "custom_theme": "Nord.json", "custom_theme_cache": cache,
+        }))
+        .unwrap();
+        assert!(single.theme_pair.is_default());
+        assert_eq!(single.cached_palette(false), Some(nord));
+        assert_eq!(single.cached_palette(true), Some(nord));
+        // Plain Follow system: Spotifast's own Light and Dark.
+        let follow: Settings = serde_json::from_str(r#"{"theme":"system"}"#).unwrap();
+        assert_eq!(follow.cached_palette(false), None);
+        assert_eq!(follow.cached_palette(true), None);
+        let encoded = serde_json::to_value(&follow).unwrap();
+        assert!(encoded.get("theme_pair").is_none(), "no pair, no field");
+
+        let mut latte = Palette::light();
+        latte.window = egui::Color32::from_rgb(0xef, 0xf1, 0xf5);
+        let mut paired = follow.clone();
+        assert!(paired.theme_pair.set(
+            Base::Light,
+            Some(&CustomTheme {
+                filename: "Catppuccin Latte.json".into(),
+                palette: latte,
+            })
+        ));
+        assert_eq!(paired.cached_palette(false), Some(latte));
+        assert_eq!(paired.cached_palette(true), None, "dark stays Spotifast's");
+        let encoded = serde_json::to_string(&paired).unwrap();
+        let decoded: Settings = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, paired);
+
+        // A pair waits behind a fixed choice and comes back with Follow system.
+        let mut fixed = paired.clone();
+        fixed.theme = ThemeChoice::Dark;
+        assert_eq!(fixed.cached_palette(false), None);
+        fixed.theme = ThemeChoice::System;
+        assert_eq!(fixed.cached_palette(false), Some(latte));
+
+        // A damaged cache keeps the choice and the other settings.
+        let mut damaged = serde_json::to_value(&paired).unwrap();
+        damaged["theme_pair"]["light"]["palette"] = "broken".into();
+        damaged["audio_cache_mb"] = 777.into();
+        let recovered: Settings = serde_json::from_value(damaged).unwrap();
+        assert_eq!(
+            recovered.theme_pair.filename(Base::Light),
+            Some("Catppuccin Latte.json")
+        );
+        assert_eq!(recovered.cached_palette(false), Some(Palette::light()));
+        assert_eq!(recovered.audio_cache_mb, 777);
     }
 
     #[test]

@@ -300,6 +300,7 @@ main fields are:
 | `custom_theme` | `null` | Selected JSON filename from the `themes` folder |
 | `custom_theme_cache` | absent | Last accepted custom palette; preserves appearance if its file is missing or invalid |
 | `system_theme_cache` | absent | Last accepted Omarchy palette for Follow system; retained across restarts |
+| `theme_pair` | absent | The themes Follow system uses in light and dark mode: `{"light": {"filename": "Catppuccin Latte.json", "palette": {...}}, "dark": {...}}`. Each `palette` is the last accepted copy of that file's colours. A missing side, or the whole field, is Spotifast's own Light or Dark; it is written only once you choose one |
 | `accent_from_art` | `true` | Tint pages with album art, and colour the player bar visualizer with the cover's colours |
 | `player_bar_vis` | `off` | Since 0.11.0: what moves behind the player bar while a song plays on this computer: `off`, `spectrum` or `waveform` |
 | `player_bar_vis_click` | `true` | Allow clicks on empty player bar space to cycle visualizer modes |
@@ -384,7 +385,7 @@ settings.
 
 `--demo-page` opens a page, such as `home`, `playlist:pl1`, or `artist:art0`,
 and `--demo-show` adds surfaces on top of it: a comma separated list of
-`queue`, `playing-next`, `devices`, `home-loading`, `audio-outputs`, `shortcuts`, `premium`, `create`, `duplicate`, `light`,
+`queue`, `playing-next`, `devices`, `home-loading`, `audio-outputs`, `shortcuts`, `premium`, `create`, `duplicate`, `light`, `system-light`, `system-dark`,
 `focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`,
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
@@ -398,6 +399,10 @@ app introduction. `audio-outputs` opens the device picker with sample audio
 outputs to choose from, as Spotifast's own output lists them.
 `signed-out` and `connecting` show the sign-in card before and while the
 session connects.
+`system-light` and `system-dark` choose Follow system on a desktop that is
+light or dark (on Linux), to show the light and dark mode themes; with an
+explicit `--demo-data` directory, its `config/settings.json` and
+`config/themes` supply them.
 `player-bar-spectrum` and `player-bar-waveform` play a fixed, music-like
 sound on this computer with that player bar visualizer on.
 `lyrics-fullscreen-view` and `lyrics-fullscreen-instrumental` draw full-screen
@@ -424,6 +429,7 @@ cargo run --release --features demo -- \
 The image uses the current window size. `--demo-size WIDTHxHEIGHT` sets that
 size in logical pixels for a shot (for example `760x800` or `1240x800`).
 `--demo-shot-delay <MS>` sets how long to wait for cover art before taking it.
+`--demo-click X,Y` clicks there before the shot, to show an open menu.
 `--demo-drag X,Y:X,Y` shows a drag in progress: the pointer presses at the
 first point, in logical pixels, and is still held down at the second when the
 shot is taken.
@@ -476,6 +482,18 @@ Light and custom choices are preserved when updating. The picker starts with
 **Follow system**, **Light**, and **Dark**, then a separator. **Omarchy** comes
 next when the integration is available, followed by the other local palettes.
 Themes change colors and keep the app's existing fonts.
+
+While **Follow system** is selected, two more pickers appear below the Theme
+row: **Light mode theme** and **Dark mode theme**. Each starts with
+Spotifast's own **Light** or **Dark**, then lists the palettes whose `base`
+matches: only light palettes for light mode and only dark ones for dark
+mode, because the base also decides whether the standard controls are drawn
+light or dark, and they follow the system. Spotifast then shows one or the
+other as your system switches between light and dark, while it stays open
+and without interrupting playback. Your choices are kept when you pick a
+single theme and come back when you choose Follow system again. On an
+Omarchy desktop, Follow system uses the Omarchy palette instead, which
+already follows your desktop theme, so the two pickers are not shown.
 **How to make a theme**, beside the picker, opens this section. The
 **Open themes folder** icon button beside the picker creates the folder if
 needed and opens it in your file
@@ -528,10 +546,12 @@ when a folder exceeds these limits.
 Invalid files are skipped with a warning in the log. Spotifast remembers the
 last accepted custom palette in `settings.json`. If the selected file is
 removed or becomes invalid, that appearance stays in place, including after
-a restart, and the Theme row explains the problem. Other preferences are
+a restart, and the Theme row explains the problem. The same holds for the
+light and dark mode themes: a file that disappears, or whose `base` changes
+to the other one, keeps its last accepted colours, and its row explains. Other preferences are
 preserved. A custom selection without any usable cached colors uses the
 built-in choice. Choosing Dark, Light or Follow system clears the custom
-selection and its cache. Editing or deleting the optional cache does not
+selection and its cache, but keeps the light and dark mode themes. Editing or deleting the optional cache does not
 reset unrelated settings.
 
 A custom palette's `base` controls both its inherited colors and the light or

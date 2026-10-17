@@ -307,7 +307,7 @@ pub struct App {
     media_controls: Option<MediaControls>,
     /// The desktop's light or dark preference, for "Follow system".
     #[cfg(target_os = "linux")]
-    system_appearance: Option<crate::appearance::SystemAppearance>,
+    pub(crate) system_appearance: Option<crate::appearance::SystemAppearance>,
     /// The artwork the media controls were last given, and the URL it came
     /// from. Finding the file touches the disk and the controls are synced
     /// every frame, so the answer is kept until the artwork changes.
@@ -1009,7 +1009,7 @@ impl App {
             .filter(|page| !matches!(page, Page::Settings | Page::Queue))
             .unwrap_or(Page::Home);
 
-        let palette = settings.cached_palette().unwrap_or_else(Palette::dark);
+        let palette = settings.fixed_palette().unwrap_or_else(Palette::dark);
         let mut app = Self {
             custom_themes: theme::Catalog::default(),
             dirs,
@@ -4153,9 +4153,17 @@ impl App {
     /// attachment never scan theme files.
     pub fn load_custom_themes(&mut self, waker: &Waker) {
         let waker = waker.clone();
+        // The saved choices are read first: the one palette, and Follow
+        // system's light and dark ones.
+        let selected = self
+            .settings
+            .custom_theme
+            .clone()
+            .into_iter()
+            .chain(self.settings.theme_pair.filenames());
         self.custom_themes.start(
             self.dirs.config.join("themes"),
-            self.settings.custom_theme.clone(),
+            selected,
             &fastframe_theme::Waker::new(move || waker.wake()),
         );
     }
@@ -4196,18 +4204,26 @@ impl App {
         } else if self.settings.system_theme_cache.take().is_some() {
             changed = true;
         }
+        // An edited light or dark palette shows its new colours.
+        if self.settings.theme_pair.refresh(&self.custom_themes) {
+            changed = true;
+        }
         if changed {
             self.mark_settings_dirty();
             ctx.set_theme(self.theme_preference());
         }
     }
 
-    fn custom_palette(&self) -> Option<Palette> {
-        self.settings.cached_palette()
+    /// The palette file's colours to show while the system is `dark` or
+    /// light, `None` for Spotifast's own Light or Dark.
+    fn custom_palette(&self, dark: bool) -> Option<Palette> {
+        self.settings.cached_palette(dark)
     }
 
     fn theme_preference(&self) -> egui::ThemePreference {
-        if let Some(palette) = self.custom_palette() {
+        // One palette fixes light or dark; Follow system's light and dark
+        // palettes keep following the system.
+        if let Some(palette) = self.settings.fixed_palette() {
             return if palette.dark {
                 egui::ThemePreference::Dark
             } else {
@@ -4240,7 +4256,7 @@ impl App {
             }
         }
         let dark = ctx.theme() == egui::Theme::Dark;
-        let palette = self.custom_palette().unwrap_or_else(|| {
+        let palette = self.custom_palette(dark).unwrap_or_else(|| {
             if dark {
                 Palette::dark()
             } else {
@@ -11345,6 +11361,18 @@ impl App {
                     self.settings.custom_theme = Some(filename);
                     self.mark_settings_dirty();
                     ctx.set_theme(self.theme_preference());
+                    self.apply_theme(ctx);
+                }
+            }
+            Action::SetPairTheme(base, filename) => {
+                // A file that is no longer listed changes nothing.
+                let listed = filename
+                    .as_deref()
+                    .map(|filename| self.custom_themes.find(filename));
+                if listed.is_none_or(|theme| theme.is_some())
+                    && self.settings.theme_pair.set(base, listed.flatten())
+                {
+                    self.mark_settings_dirty();
                     self.apply_theme(ctx);
                 }
             }
@@ -20215,7 +20243,7 @@ mod tests {
         app.save_settings();
         app.flush_files();
         let saved = Settings::load(&app.dirs.settings_file());
-        assert_eq!(saved.cached_palette(), Some(theme.palette));
+        assert_eq!(saved.fixed_palette(), Some(theme.palette));
 
         show_system_theme(&mut app, &ctx, None, true);
         app.apply_theme(&ctx);
@@ -20253,6 +20281,87 @@ mod tests {
         assert_eq!(app.resume_track.as_deref(), Some("spotify:track:playing"));
         assert_eq!(app.resume_position_ms, 123_000);
         std::fs::remove_dir_all(app.dirs.config.parent().unwrap()).unwrap();
+    }
+
+    /// Follow system shows the chosen light palette in light mode and the
+    /// dark one in dark mode, switching live as the system does; a palette
+    /// of the other base is refused, and Omarchy still wins (#619).
+    #[test]
+    fn follow_system_switches_between_the_chosen_light_and_dark_palettes() {
+        let mut app = headless_app();
+        app.reveal_theme_changes = false;
+        let ctx = egui::Context::default();
+        app.settings.theme = ThemeChoice::System;
+        let named = |filename: &str, mut palette: Palette, accent| {
+            palette.accent = accent;
+            theme::CustomTheme {
+                filename: filename.into(),
+                palette,
+            }
+        };
+        let latte = named("Latte.json", Palette::light(), egui::Color32::RED);
+        let mocha = named("Mocha.json", Palette::dark(), egui::Color32::BLUE);
+        app.custom_themes = theme::Catalog::preview(vec![latte.clone(), mocha.clone()], false);
+        let light = fastframe_theme::Base::Light;
+        let dark = fastframe_theme::Base::Dark;
+        app.apply(Action::SetPairTheme(light, Some("Mocha.json".into())), &ctx);
+        app.apply(Action::SetPairTheme(dark, Some("Latte.json".into())), &ctx);
+        app.apply(
+            Action::SetPairTheme(dark, Some("missing.json".into())),
+            &ctx,
+        );
+        assert!(
+            app.settings.theme_pair.is_default(),
+            "each slot takes its own base"
+        );
+        app.apply(Action::SetPairTheme(light, Some("Latte.json".into())), &ctx);
+        app.apply(Action::SetPairTheme(dark, Some("Mocha.json".into())), &ctx);
+        assert!(app.settings_dirty);
+        assert_eq!(app.theme_preference(), egui::ThemePreference::System);
+
+        let system = |app: &mut App, theme| {
+            ctx.options_mut(|options| options.fallback_theme = theme);
+            #[cfg(target_os = "linux")]
+            {
+                app.system_appearance = Some(crate::appearance::SystemAppearance::fixed(
+                    theme == egui::Theme::Dark,
+                ));
+            }
+            app.apply_theme(&ctx);
+        };
+        system(&mut app, egui::Theme::Light);
+        assert_eq!(ctx.theme(), egui::Theme::Light);
+        assert_eq!(app.palette, latte.palette);
+        system(&mut app, egui::Theme::Dark);
+        assert_eq!(ctx.theme(), egui::Theme::Dark);
+        assert_eq!(app.palette, mocha.palette);
+
+        // Spotifast's own Light for light mode again.
+        app.apply(Action::SetPairTheme(light, None), &ctx);
+        system(&mut app, egui::Theme::Light);
+        assert_eq!(app.palette, Palette::light());
+        assert_eq!(app.settings.theme_pair.filename(dark), Some("Mocha.json"));
+
+        // The dark palette's file disappears: its last colours stay.
+        app.custom_themes = theme::Catalog::preview(Vec::new(), false);
+        app.adopt_custom_themes(&ctx);
+        system(&mut app, egui::Theme::Dark);
+        assert_eq!(app.palette, mocha.palette);
+
+        // One palette for everything still overrides the pair.
+        app.custom_themes = theme::Catalog::preview(vec![latte.clone()], false);
+        app.apply(Action::SetCustomTheme("Latte.json".into()), &ctx);
+        system(&mut app, egui::Theme::Dark);
+        assert_eq!(app.palette, latte.palette);
+        app.apply(Action::SetTheme(ThemeChoice::System), &ctx);
+        system(&mut app, egui::Theme::Dark);
+        assert_eq!(app.palette, mocha.palette, "the pair comes back");
+
+        // Following Omarchy shows its palette, as before.
+        let omarchy = named("omarchy.json", Palette::light(), egui::Color32::GREEN);
+        show_system_theme(&mut app, &ctx, Some(omarchy.clone()), true);
+        app.apply_theme(&ctx);
+        assert_eq!(app.palette, omarchy.palette);
     }
 
     /// winit reports no system theme on Linux, so "Follow system" takes

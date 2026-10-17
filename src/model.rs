@@ -1263,6 +1263,9 @@ pub enum Action {
     SetLanguage(crate::settings::LanguageChoice),
     OpenThemesFolder,
     SetCustomTheme(String),
+    /// Follow system shows this palette file (or Spotifast's own with
+    /// `None`) while the system is in this appearance.
+    SetPairTheme(fastframe_theme::Base, Option<String>),
     ReloadThemes,
     SetLibraryByYou(bool),
     SetLibrarySort {

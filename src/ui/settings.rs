@@ -1132,6 +1132,31 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let show_custom_titlebar = cfg!(target_os = "linux") || app.windows_controls_visible();
     let player_bar_vis = gettext(locale, "Player bar visualizer");
     let player_bar_vis_click = gettext(locale, "Click player bar to change visualizer");
+    // Follow system's own light and dark palettes. Omarchy's palette already
+    // follows the desktop, so they are offered only without it.
+    let show_pair = app.settings.custom_theme.is_none()
+        && app.settings.theme == ThemeChoice::System
+        && !app.custom_themes.follows_omarchy();
+    let pair_row = |base: fastframe_theme::Base| {
+        let (title, usage) = match base {
+            fastframe_theme::Base::Light => (
+                gettext(locale, "Light mode theme"),
+                gettext(
+                    locale,
+                    "Used while your computer is in light mode. Only light themes are listed.",
+                ),
+            ),
+            fastframe_theme::Base::Dark => (
+                gettext(locale, "Dark mode theme"),
+                gettext(
+                    locale,
+                    "Used while your computer is in dark mode. Only dark themes are listed.",
+                ),
+            ),
+        };
+        let detail = theme::pair_detail(&app.custom_themes, locale, &app.settings.theme_pair, base);
+        RowText::new(title, if detail.is_empty() { usage } else { detail }).when(show_pair)
+    };
     let appearance_rows = [
         RowText::new(theme_title.clone(), {
             let detail = theme::catalog_detail(
@@ -1220,6 +1245,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 "How often the player bar and mini player visualizers draw. Lower rates use fewer resources. MilkDrop has its own.",
             ),
         ),
+        pair_row(fastframe_theme::Base::Light),
+        pair_row(fastframe_theme::Base::Dark),
     ];
     if section_matches(&needle, &appearance, &appearance_rows) {
         any_visible = true;
@@ -1322,6 +1349,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     });
                 },
             );
+            for (row, base) in [
+                (&appearance_rows[11], fastframe_theme::Base::Light),
+                (&appearance_rows[12], fastframe_theme::Base::Dark),
+            ] {
+                filtered_row(ui, &palette, &needle, &appearance, row, |ui| {
+                    pair_picker(app, ui, base, &row.title);
+                });
+            }
             filtered_row(
                 ui,
                 &palette,
@@ -2401,6 +2436,58 @@ fn start_with_computer_row(
 /// A band's frequency the short way: 60, 170, 1K, 16K.
 /// The interface language: System first, then each language by its own name,
 /// so a reader can find theirs whatever language the app is showing.
+/// Follow system's palette for light or dark mode: Spotifast's own, or a
+/// palette file of that base.
+fn pair_picker(app: &mut App, ui: &mut egui::Ui, base: fastframe_theme::Base, name: &str) {
+    let locale = app.locale;
+    let own = match base {
+        fastframe_theme::Base::Light => ThemeChoice::Light,
+        fastframe_theme::Base::Dark => ThemeChoice::Dark,
+    }
+    .label(locale);
+    let current = app.settings.theme_pair.filename(base).map(str::to_owned);
+    let selected = current.as_deref().map_or_else(
+        || own.clone(),
+        |filename| fastframe_theme::display_name(filename).to_owned().into(),
+    );
+    let salt = match base {
+        fastframe_theme::Base::Light => "appearance_light_theme",
+        fastframe_theme::Base::Dark => "appearance_dark_theme",
+    };
+    let response = egui::ComboBox::from_id_salt(salt)
+        .selected_text(selected.as_ref())
+        .width(200.0_f32.min(ui.available_width()))
+        .show_ui(ui, |ui| {
+            if ui
+                .selectable_label(current.is_none(), own.as_ref())
+                .clicked()
+                && current.is_some()
+            {
+                app.actions.push(Action::SetPairTheme(base, None));
+            }
+            let mut themes = app.custom_themes.pair_themes(base).peekable();
+            if themes.peek().is_some() {
+                ui.separator();
+            }
+            for theme in themes {
+                let chosen = current.as_deref() == Some(theme.filename.as_str());
+                if ui
+                    .selectable_label(chosen, fastframe_theme::display_name(&theme.filename))
+                    .clicked()
+                    && !chosen
+                {
+                    app.actions
+                        .push(Action::SetPairTheme(base, Some(theme.filename.clone())));
+                }
+            }
+        });
+    response.response.widget_info(|| {
+        let mut info = egui::WidgetInfo::labeled(egui::WidgetType::ComboBox, ui.is_enabled(), name);
+        info.current_text_value = Some(selected.to_string());
+        info
+    });
+}
+
 fn language_picker(app: &mut App, ui: &mut egui::Ui) {
     let locale = app.locale;
     let system = pgettext(locale, "language", "System");

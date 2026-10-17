@@ -1335,6 +1335,19 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                 app.settings.theme = crate::settings::ThemeChoice::Dark;
                 app.actions.push(Action::SettingsChanged);
             }
+            // Follow system on a desktop fixed light or dark (Linux), for
+            // shots of the light and dark mode themes.
+            "system-light" | "system-dark" => {
+                app.settings.theme = crate::settings::ThemeChoice::System;
+                app.settings.custom_theme = None;
+                #[cfg(target_os = "linux")]
+                {
+                    app.system_appearance = Some(crate::appearance::SystemAppearance::fixed(
+                        surface == "system-dark",
+                    ));
+                }
+                app.actions.push(Action::SettingsChanged);
+            }
             "song-top-result" => {
                 if let Loadable::Loaded(results) = &mut app.search.results {
                     results.artists = None;
@@ -5725,6 +5738,83 @@ mod tests {
         assert!(
             !painted.iter().any(|(text, _)| text == "In the tray"),
             "nothing to offer where nothing can be registered"
+        );
+    }
+
+    /// Follow system offers a light and a dark theme, each listing only the
+    /// palettes of its base; a fixed choice hides them (#619).
+    #[test]
+    fn follow_system_offers_a_light_and_a_dark_theme_of_their_own_base() {
+        let (ctx, mut app) = accessible_app("theme-pair-picker");
+        app.backend.shutdown();
+        app.open(Page::Settings);
+        ctx.data_mut(|data| {
+            data.insert_temp(egui::Id::new("settings-filter"), "Appearance".to_string())
+        });
+        let theme = |filename: &str, palette| crate::theme::CustomTheme {
+            filename: filename.into(),
+            palette,
+        };
+        app.custom_themes = crate::theme::Catalog::preview(
+            vec![
+                theme("Latte.json", crate::theme::Palette::light()),
+                theme("Mocha.json", crate::theme::Palette::dark()),
+            ],
+            false,
+        );
+        for _ in 0..3 {
+            view_frame(&ctx, &mut app, vec![], App::frame_ui);
+        }
+        let painted = view_frame(&ctx, &mut app, vec![], App::frame_ui);
+        let title = sidebar_text(&painted, "Light mode theme");
+        assert!(sidebar_text(&painted, "Dark mode theme").top() > title.top());
+        // The picker beside the title shows Spotifast's own Light.
+        let picker = painted
+            .iter()
+            .find(|(text, rect)| {
+                text == "Light" && (rect.center().y - title.center().y).abs() < 30.0
+            })
+            .map(|(_, rect)| rect.center())
+            .expect("light mode picker");
+        view_frame(
+            &ctx,
+            &mut app,
+            pointer_click(picker, egui::PointerButton::Primary),
+            App::frame_ui,
+        );
+        let painted = view_frame(&ctx, &mut app, vec![], App::frame_ui);
+        assert!(
+            painted.iter().all(|(text, _)| text != "Mocha"),
+            "a dark palette is not offered for light mode"
+        );
+        let latte = sidebar_text(&painted, "Latte").center();
+        view_frame(
+            &ctx,
+            &mut app,
+            pointer_click(latte, egui::PointerButton::Primary),
+            App::frame_ui,
+        );
+        assert_eq!(
+            app.settings
+                .theme_pair
+                .filename(fastframe_theme::Base::Light),
+            Some("Latte.json")
+        );
+        let tree = accessible_frame(&ctx, &mut app, vec![]);
+        let id = accessible_node(&tree, "Light mode theme", egui::accesskit::Role::ComboBox);
+        let node = &tree
+            .nodes
+            .iter()
+            .find(|(node_id, _)| *node_id == id)
+            .unwrap()
+            .1;
+        assert_eq!(node.value(), Some("Latte"), "read out as shown");
+
+        app.apply(Action::SetTheme(crate::settings::ThemeChoice::Dark), &ctx);
+        let painted = view_frame(&ctx, &mut app, vec![], App::frame_ui);
+        assert!(
+            painted.iter().all(|(text, _)| text != "Light mode theme"),
+            "a fixed theme has no light and dark themes"
         );
     }
 

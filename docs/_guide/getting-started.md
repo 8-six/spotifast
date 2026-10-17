@@ -79,6 +79,11 @@ You can rename it in Settings.
 Open **Settings → Appearance → Theme** and choose **Light**, **Dark**, or
 **Follow system**. Follow system matches your desktop's appearance.
 
+With Follow system, **Light mode theme** and **Dark mode theme** below it
+pick the theme for each: for example Catppuccin Latte while your computer is
+light and Catppuccin while it is dark. Spotifast switches between them as
+your computer does, without interrupting the music.
+
 On Omarchy, Spotifast matches your desktop theme from the first time you open
 it; the AUR package also installs the theme hook. Choose **Follow system** or **Omarchy**, then change your
 desktop theme: Spotifast's colours follow while the music keeps playing.
