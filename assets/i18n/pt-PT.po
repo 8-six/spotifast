@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 18:23+0200\n"
+"POT-Creation-Date: 2026-10-17 18:28+0200\n"
 "PO-Revision-Date: 2026-09-23 20:00+0000\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: European Portuguese\n"
@@ -64,116 +64,116 @@ msgstr "Ordem personalizada local"
 msgid "Spotify custom order"
 msgstr "Ordem personalizada do Spotify"
 
-#: src/ui/sidebar.rs:733
+#: src/ui/sidebar.rs:783
 msgid "Folder"
 msgstr "Pasta"
 
 #. Translators: {owner} is the name of the playlist's owner.
-#: src/ui/sidebar.rs:860 src/ui/search.rs:228
+#: src/ui/sidebar.rs:910 src/ui/search.rs:228
 #, rust-format
 msgid "Playlist • {owner}"
 msgstr "Playlist • {owner}"
 
-#: src/ui/sidebar.rs:918 src/i18n.rs:269 src/i18n.rs:272 src/ui/keys.rs:260
+#: src/ui/sidebar.rs:968 src/i18n.rs:269 src/i18n.rs:272 src/ui/keys.rs:260
 #: src/ui/topbar.rs:255
 msgid "Home"
 msgstr "Início"
 
-#: src/ui/sidebar.rs:929 src/app.rs:7177 src/ui/keys.rs:251
+#: src/ui/sidebar.rs:979 src/app.rs:7177 src/ui/keys.rs:251
 msgid "Search"
 msgstr "Pesquisar"
 
-#: src/ui/sidebar.rs:968
+#: src/ui/sidebar.rs:1018
 msgid "Hide sidebar (Ctrl+B)"
 msgstr "Ocultar barra lateral (Ctrl+B)"
 
-#: src/ui/sidebar.rs:969
+#: src/ui/sidebar.rs:1019
 msgid "Hide sidebar (Cmd+B)"
 msgstr "Ocultar barra lateral (Cmd+B)"
 
-#: src/ui/sidebar.rs:978
+#: src/ui/sidebar.rs:1028
 msgid "Show as list"
 msgstr "Mostrar como lista"
 
-#: src/ui/sidebar.rs:980
+#: src/ui/sidebar.rs:1030
 msgid "Show as grid"
 msgstr "Mostrar como grelha"
 
-#: src/ui/sidebar.rs:993
+#: src/ui/sidebar.rs:1043
 msgid "Create a playlist"
 msgstr "Criar playlist"
 
-#: src/ui/sidebar.rs:1009
+#: src/ui/sidebar.rs:1059
 msgid "Search Your Library"
 msgstr "Pesquisar na biblioteca"
 
-#: src/ui/sidebar.rs:1025
+#: src/ui/sidebar.rs:1075
 msgid "Library"
 msgstr "Biblioteca"
 
-#: src/ui/sidebar.rs:1045 src/app.rs:7151 src/model.rs:705 src/ui/search.rs:665
+#: src/ui/sidebar.rs:1095 src/app.rs:7151 src/model.rs:705 src/ui/search.rs:665
 msgid "Playlists"
 msgstr "Playlists"
 
-#: src/ui/sidebar.rs:1046 src/model.rs:704 src/model.rs:829
+#: src/ui/sidebar.rs:1096 src/model.rs:704 src/model.rs:829
 #: src/ui/library.rs:17 src/ui/search.rs:592
 msgid "Albums"
 msgstr "Álbuns"
 
-#: src/ui/sidebar.rs:1047 src/model.rs:703 src/ui/library.rs:22
+#: src/ui/sidebar.rs:1097 src/model.rs:703 src/ui/library.rs:22
 #: src/ui/search.rs:524
 msgid "Artists"
 msgstr "Artistas"
 
-#: src/ui/sidebar.rs:1048 src/model.rs:706 src/ui/library.rs:27
+#: src/ui/sidebar.rs:1098 src/model.rs:706 src/ui/library.rs:27
 #: src/ui/search.rs:716
 msgid "Podcasts"
 msgstr "Podcasts"
 
 #. Translators: Library filter for playlists created by the signed-in user.
-#: src/ui/sidebar.rs:1061
+#: src/ui/sidebar.rs:1111
 msgid "By You"
 msgstr "Por ti"
 
-#: src/ui/sidebar.rs:1089
+#: src/ui/sidebar.rs:1139
 msgid "Search in Your Library"
 msgstr "Pesquisar na tua biblioteca"
 
-#: src/ui/sidebar.rs:1193 src/app.rs:2971 src/ui/artist.rs:214
+#: src/ui/sidebar.rs:1243 src/app.rs:2971 src/ui/artist.rs:214
 #: src/ui/artist.rs:357 src/ui/home.rs:589 src/ui/library.rs:101
 #: src/ui/search.rs:159 src/ui/search.rs:488 src/ui/winamp/playlist.rs:746
 msgid "Artist"
 msgstr "Artista"
 
 #. Translators: {publisher} is the podcast's publisher.
-#: src/ui/sidebar.rs:1228 src/ui/search.rs:253
+#: src/ui/sidebar.rs:1278 src/ui/search.rs:253
 #, rust-format
 msgid "Podcast • {publisher}"
 msgstr "Podcast • {publisher}"
 
-#: src/ui/sidebar.rs:1286
+#: src/ui/sidebar.rs:1336
 msgid "Nothing here yet."
 msgstr "Ainda não há nada aqui."
 
-#: src/ui/sidebar.rs:1288
+#: src/ui/sidebar.rs:1338
 msgid "No matches."
 msgstr "Sem resultados."
 
-#: src/ui/sidebar.rs:1917
+#: src/ui/sidebar.rs:1967
 msgid "Sort by recently played"
 msgstr "Ordenar por reproduzidos recentemente"
 
-#: src/ui/sidebar.rs:1938 src/ui/player_bar.rs:686 src/ui/widgets.rs:1144
+#: src/ui/sidebar.rs:1988 src/ui/player_bar.rs:686 src/ui/widgets.rs:1144
 #: src/ui/artist.rs:388 src/ui/collection.rs:260 src/ui/prerelease.rs:309
 #: src/ui/search.rs:408 src/ui/show.rs:389
 msgid "Play"
 msgstr "Reproduzir"
 
-#: src/ui/sidebar.rs:1956
+#: src/ui/sidebar.rs:2006
 msgid "Unpin"
 msgstr "Desafixar"
 
-#: src/ui/sidebar.rs:1958
+#: src/ui/sidebar.rs:2008
 msgid "Pin to top"
 msgstr "Fixar no topo"
 

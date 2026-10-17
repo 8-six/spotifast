@@ -355,6 +355,10 @@ dates. Spotify does not supply equivalent dates for followed playlists or
 artists, so those sections do not offer that choice. Entries with missing save
 dates come last.
 
+**Name** keeps your Spotify playlist folders, as Spotify does: playlists sort
+by name inside each folder, and folders sort by name among the playlists
+beside them. A search or **By You** still lists matching playlists flat.
+
 **Spotify custom order** follows your playlist order and folders from Spotify.
 Set up playback on this computer to load that order. Your playlists stay
 visible while it loads, and Spotifast remembers the last order for your account.
