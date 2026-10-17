@@ -2212,6 +2212,7 @@ mod ordering_tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         crate::demo::populate(&mut app);

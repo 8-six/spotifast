@@ -462,6 +462,30 @@ In **Settings > Appearance**, **Compact track list** puts each song on one
 line. In narrow lists, the added date follows the artist credits with a spaced
 bullet; each artist name remains a separate link.
 
+## Starting with your computer
+
+**Settings > Playback on this computer > Start with your computer** opens
+Spotifast when you log in. **With the window** opens it as you would;
+**In the tray** starts it without a window, ready for media keys and the tray
+icon. **Off** leaves your login alone.
+
+The setting is your system's own list of what starts at login, read back each
+time Settings opens, so turning Spotifast off there (System Settings on macOS,
+Task Manager's Startup apps on Windows, your desktop's autostart settings on
+Linux) shows here too.
+
+- **In the tray** needs **Keep music playing when the window closes**: without
+  it nothing could bring a hidden window back, so the window opens instead and
+  the row says so. The window also opens when no panel shows the tray icon
+  within 30 seconds of logging in.
+- **macOS** asks you to allow it in **System Settings > General > Login
+  Items** when it holds the item for approval; the row says so until then.
+  It needs macOS 13 or later and the app from the disk image or Homebrew.
+- **Flatpak** asks the desktop's background portal, which may ask you first.
+  A change made later in the desktop's own settings is not seen by Spotifast.
+- If Spotifast is already running when the login entry runs, nothing happens:
+  it stays where it is.
+
 ## Windows taskbar controls
 
 Since 0.8.0, hovering Spotifast's taskbar button offers **Previous**,

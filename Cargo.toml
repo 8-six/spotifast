@@ -79,6 +79,8 @@ fastframe-audio = { git = "https://github.com/crmne/fastframe", rev = "f9632280f
 # The wheel step, the Linux touchpad scale and glide, and the axis a scroll
 # gesture holds.
 fastframe-scroll = { git = "https://github.com/crmne/fastframe", rev = "f9632280fa100a3406542e90d790328741614f0d" }
+# Starting at login, with the window or in the tray (#122).
+fastframe-autostart = { git = "https://github.com/crmne/fastframe", rev = "f9632280fa100a3406542e90d790328741614f0d" }
 # One running copy per user: a lock and a private channel that a second
 # launch and the command line hand their requests to.
 fastframe-instance = { git = "https://github.com/crmne/fastframe", rev = "f9632280fa100a3406542e90d790328741614f0d" }

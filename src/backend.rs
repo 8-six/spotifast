@@ -653,8 +653,27 @@ struct PlaylistCacheWrite {
     next_offset: Option<u32>,
 }
 
+/// What the app asks of its login registration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AutostartRequest {
+    /// Read what the system has registered.
+    Read,
+    /// Register this way, or remove the registration with `None`.
+    Set(Option<fastframe_autostart::Start>),
+}
+
+/// Spotifast's registration to start at login. The hidden start passes
+/// `--start-hidden`, which the command line takes.
+pub fn autostart() -> fastframe_autostart::Autostart {
+    fastframe_autostart::Autostart::new("spotifast", "Spotifast")
+}
+
 pub enum Command {
     OpenThemesFolder,
+    /// Read or change the login registration, off the UI thread: it reads
+    /// and writes a file, the registry or D-Bus, and the Flatpak portal may
+    /// ask the person first.
+    Autostart(AutostartRequest),
     /// Read the names of this computer's audio outputs, off the UI thread.
     ListOutputDevices,
     ProxyRestored {
@@ -953,6 +972,12 @@ pub enum Event {
     OutputDevices(Result<Vec<String>, String>),
     /// Cast advertisements ready before the final browse/probe reconciliation.
     ReceiversProgress(crate::zeroconf::ReceiverUpdates),
+    /// The login registration after `request`: what the system has now, or
+    /// why the change failed.
+    Autostart {
+        request: AutostartRequest,
+        result: Result<fastframe_autostart::State, String>,
+    },
     ReceiverActivated {
         name: String,
         result: Result<(), String>,
@@ -2069,6 +2094,21 @@ impl Worker {
                         let names = fastframe_audio::output_device_names()
                             .map_err(|error| error.to_string());
                         let _ = events.send(Event::OutputDevices(names));
+                        waker.wake();
+                    });
+                }
+                Command::Autostart(request) => {
+                    let events = self.events.clone();
+                    let waker = self.waker.clone();
+                    tokio::task::spawn_blocking(move || {
+                        let autostart = autostart();
+                        let result = match request {
+                            AutostartRequest::Read => Ok(autostart.state()),
+                            AutostartRequest::Set(start) => {
+                                autostart.set(start).map_err(|error| error.to_string())
+                            }
+                        };
+                        let _ = events.send(Event::Autostart { request, result });
                         waker.wake();
                     });
                 }

@@ -1179,6 +1179,8 @@ pub enum Action {
     RefreshDevices,
     /// List this computer's audio outputs for the device picker.
     ListOutputDevices,
+    /// Start Spotifast when the person logs in, this way, or not at all.
+    SetStartWithComputer(Option<fastframe_autostart::Start>),
     /// Play through this output, by name; `None` is the system default.
     SetAudioDevice(Option<String>),
     /// Empty Next up of its queued songs, keeping the context's own.

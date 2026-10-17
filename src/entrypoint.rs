@@ -25,6 +25,12 @@ struct Cli {
     #[arg(short, long)]
     verbose: bool,
 
+    /// Start in the tray, without a window, as a start at login in the
+    /// tray does. Without the tray, or with "Keep music playing when the
+    /// window closes" off, the window opens anyway.
+    #[arg(long)]
+    start_hidden: bool,
+
     /// Start with sample data and no Spotify connection (for screenshots).
     #[cfg(feature = "demo")]
     #[arg(long)]
@@ -46,7 +52,7 @@ struct Cli {
     /// Extra demo surfaces: a comma-separated list of `queue`, `playing-next`,
     /// `devices`, `sonos-idle`, `sonos-active`, `cast-idle`, `cast-connecting`, `phone-playing`,
     /// `shortcuts`, `create`, `light`, `focus`, `update`, `personal-app`,
-    /// `windows-taskbar`, `german`, `lyrics`, `lyrics-fullscreen`, `collection-loading`,
+    /// `windows-taskbar`, `start-in-tray`, `german`, `lyrics`, `lyrics-fullscreen`, `collection-loading`,
     /// `shuffle-selected`, `shuffle-started`, `undated-mix`, `signed-out`, `connecting`, `library-list`,
     /// `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
     /// or `library-grid-wide`.
@@ -427,8 +433,13 @@ pub(crate) fn run() -> eframe::Result<()> {
     #[cfg(not(feature = "demo"))]
     let guarded = true;
     let instance = if guarded {
-        match single_instance::acquire(&waker, link.as_deref()) {
+        let hidden = cli.start_hidden && link.is_none();
+        match single_instance::acquire(&waker, link.as_deref(), hidden) {
             single_instance::Outcome::Only(guard) => Some(guard),
+            single_instance::Outcome::Surfaced if hidden => {
+                log::info!("Spotifast is already running");
+                return Ok(());
+            }
             single_instance::Outcome::Surfaced => {
                 log::info!("Spotifast is already running; asked it to show its window");
                 return Ok(());
@@ -505,6 +516,8 @@ pub(crate) fn run() -> eframe::Result<()> {
     #[cfg(feature = "demo")]
     if demo {
         options.restore_sign_in = false;
+        // A demo never reads or changes the real login registration.
+        options.autostart = false;
     }
     #[cfg(feature = "demo")]
     if cli.demo_shot.is_some() {
@@ -512,6 +525,7 @@ pub(crate) fn run() -> eframe::Result<()> {
             media_controls: false,
             restore_sign_in: false,
             tray: false,
+            autostart: false,
         };
     }
     #[cfg(windows)]
@@ -535,6 +549,7 @@ pub(crate) fn run() -> eframe::Result<()> {
     if load_themes {
         app.load_custom_themes(&waker);
     }
+    let receipt_shown = launch.receipt.is_some();
     app.update_receipt = launch.receipt;
     if let Some(error) = launch.error {
         app.report_update_failure(error);
@@ -542,6 +557,7 @@ pub(crate) fn run() -> eframe::Result<()> {
     if let Some(guard) = &instance {
         app.set_remote_control(guard);
     }
+    let link_given = link.is_some();
     if let Some(uri) = link {
         app.open_link(uri);
     }
@@ -586,7 +602,15 @@ pub(crate) fn run() -> eframe::Result<()> {
     spotifast::window::set_fixed_size(demo_inner.is_some());
     #[cfg(feature = "demo")]
     let demo_storage = app.dirs.cache.join("demo-window.ron");
-    let shell = fastframe_shell::Shell::new(app, &waker);
+    // A start at login in the tray. A link asked to be seen, so it opens
+    // the window; so does a restart after an update, which shows its
+    // receipt. Without a tray the app opens the window itself
+    // (`Resident::start_hidden`).
+    #[cfg(feature = "demo")]
+    let start_hidden = start_hidden(cli.start_hidden, link_given, demo, receipt_shown);
+    #[cfg(not(feature = "demo"))]
+    let start_hidden = start_hidden(cli.start_hidden, link_given, false, receipt_shown);
+    let shell = fastframe_shell::Shell::new(app, &waker).start_hidden(start_hidden);
     // The menu-bar item answers only while AppKit's loop runs. Elsewhere
     // nothing needs the main thread between headless ticks, so the shell
     // sleeps until the waker wakes it.
@@ -749,6 +773,13 @@ impl MiniWindow {
 
 /// The main window's remembered geometry. A demo run opens at its default
 /// size, wherever the window manager puts it.
+/// Whether the first window waits in the tray: asked for (a start at login
+/// in the tray), with no link to show, outside a demo, and not a restart
+/// after an update, which shows what it installed.
+fn start_hidden(requested: bool, link: bool, demo: bool, receipt: bool) -> bool {
+    requested && !link && !demo && !receipt
+}
+
 fn main_geometry(app: &app::App) -> Geometry {
     if app.offline {
         Geometry::default()
@@ -1550,6 +1581,35 @@ mod tests {
         );
 
         assert_eq!(missing_pulseaudio_properties(|_| true).count(), 0);
+    }
+
+    /// The login entry's `--start-hidden` starts in the tray, unless the
+    /// launch has something to show.
+    #[test]
+    fn a_start_at_login_in_the_tray_waits_unless_there_is_something_to_show() {
+        let launch = Cli::try_parse_from(["spotifast", "--start-hidden"]).expect("it parses");
+        assert!(launch.start_hidden);
+        assert!(
+            !Cli::try_parse_from(["spotifast"])
+                .expect("it parses")
+                .start_hidden
+        );
+        assert_eq!(
+            fastframe_autostart::START_HIDDEN,
+            "--start-hidden",
+            "the argument the login entry passes"
+        );
+        assert!(start_hidden(true, false, false, false));
+        assert!(!start_hidden(false, false, false, false));
+        assert!(!start_hidden(true, true, false, false), "a link is shown");
+        assert!(
+            !start_hidden(true, false, true, false),
+            "a demo shows itself"
+        );
+        assert!(
+            !start_hidden(true, false, false, true),
+            "an update receipt is shown"
+        );
     }
 
     /// A link on the command line is a link, and a control verb is still a

@@ -250,6 +250,9 @@ pub struct AppOptions {
     pub media_controls: bool,
     /// Register the system-tray item (Linux).
     pub tray: bool,
+    /// Read and change the real login registration. Tests and demo runs
+    /// leave it alone.
+    pub autostart: bool,
 }
 
 impl Default for AppOptions {
@@ -258,6 +261,7 @@ impl Default for AppOptions {
             restore_sign_in: true,
             media_controls: true,
             tray: true,
+            autostart: true,
         }
     }
 }
@@ -309,6 +313,24 @@ pub struct App {
     /// every frame, so the answer is kept until the artwork changes.
     media_art: Option<(String, PathBuf)>,
     tray: Option<fastframe_tray::Tray>,
+    /// A hidden start's deadline for a panel to show the tray item: a start
+    /// at login can beat the desktop's tray host, and without one by then
+    /// the window opens, since nothing else could bring it back.
+    tray_wait: Option<Instant>,
+    /// What the system has registered to start Spotifast at login, as last
+    /// read; `None` until the first answer.
+    pub autostart: Option<fastframe_autostart::State>,
+    /// The person's latest choice of how to start at login, shown until the
+    /// system confirms it.
+    pub autostart_wanted: Option<Option<fastframe_autostart::Start>>,
+    /// A request to the login registration is on its way; the next waits
+    /// for its answer, so two changes never race.
+    autostart_busy: bool,
+    /// Whether this run may touch the real login registration.
+    autostart_live: bool,
+    /// The requests a run without a live registration would have sent.
+    #[cfg(test)]
+    autostart_sent: Vec<crate::backend::AutostartRequest>,
     /// Whether the tray menu last offered Pause rather than Play.
     tray_playing: bool,
     /// The system's power and session state.
@@ -790,19 +812,46 @@ impl fastframe_shell::Resident for App {
     fn headless_frame(&mut self, ctx: &egui::Context) -> fastframe_shell::Headless {
         use fastframe_shell::Headless;
         self.background_frame(ctx);
+        let tray_shown = self
+            .tray
+            .as_ref()
+            .is_some_and(fastframe_tray::Tray::is_shown);
+        self.check_tray_wait(Instant::now(), tray_shown);
         if self.quit_requested {
             Headless::Quit
         } else if self.wants_show {
             Headless::Show
+        } else if self.tray_wait.is_some() {
+            // Look for the panel each tick until it shows the item or the
+            // wait ends.
+            Headless::Wait
         } else {
             self.headless_wait()
         }
+    }
+
+    /// A start at login in the tray (`--start-hidden`). Without a tray, or
+    /// with "Keep music playing when the window closes" off, closing the
+    /// window would quit, so there is no way back to a hidden one: the
+    /// window opens instead.
+    fn start_hidden(&mut self) -> bool {
+        if self.tray.is_none() || !self.settings.keep_playing_in_background {
+            log::info!("starting with the window: nothing would keep Spotifast in the tray");
+            return false;
+        }
+        self.begin_hidden_start(Instant::now());
+        true
     }
 
     fn shutdown(&mut self) {
         App::shutdown(self);
     }
 }
+
+/// How long a hidden start waits for a panel to show the tray item before it
+/// opens the window. GNOME's AppIndicator extension, for one, loads after
+/// the session's autostart apps.
+const TRAY_WAIT: Duration = Duration::from_secs(30);
 
 /// The tray menu's Play or Pause entry, for what is playing.
 fn play_pause_label(playing: bool) -> &'static str {
@@ -979,6 +1028,13 @@ impl App {
             system_appearance,
             media_art: None,
             tray,
+            tray_wait: None,
+            autostart: None,
+            autostart_wanted: None,
+            autostart_busy: false,
+            autostart_live: options.autostart,
+            #[cfg(test)]
+            autostart_sent: Vec::new(),
             tray_playing: false,
             power,
             follows_reachability: cfg!(target_os = "macos"),
@@ -1230,6 +1286,11 @@ impl App {
         // What was played here is on disk and needs nothing from the
         // network, so the tab has rows before Spotify has answered.
         app.rebuild_recents();
+        // Whether Spotifast starts at login, for its Settings row; the
+        // answer comes from the backend's thread.
+        if app.autostart_live {
+            app.send_autostart(crate::backend::AutostartRequest::Read);
+        }
         app
     }
 
@@ -1256,6 +1317,8 @@ impl App {
         self.hide_intent = false;
         self.wants_show = false;
         self.switch_intent = false;
+        // A window is here, so a hidden start's wait for a panel is over.
+        self.tray_wait = None;
         self.winamp_level_reassert = 0;
         // A new window starts titled "Spotifast"; name the playing song
         // again rather than trust what the replaced window was told.
@@ -1322,6 +1385,96 @@ impl App {
             .as_ref()
             .is_some_and(fastframe_tray::Tray::is_shown)
             && self.settings.keep_playing_in_background
+    }
+
+    /// Runs without a window from the start. The macOS menu-bar item is
+    /// otherwise made when a window attaches the tray, so it is made now;
+    /// a tray no panel shows yet gets [`TRAY_WAIT`] to appear.
+    fn begin_hidden_start(&mut self, now: Instant) {
+        self.window_hidden = true;
+        if let Some(tray) = &mut self.tray {
+            tray.create_item();
+            if !tray.is_shown() {
+                self.tray_wait = Some(now + TRAY_WAIT);
+            }
+        }
+    }
+
+    /// Ends a hidden start's wait for a panel: a panel showing the tray
+    /// item keeps the window hidden, and none by the deadline shows it.
+    fn check_tray_wait(&mut self, now: Instant, tray_shown: bool) {
+        let Some(deadline) = self.tray_wait else {
+            return;
+        };
+        if tray_shown {
+            self.tray_wait = None;
+        } else if now >= deadline {
+            log::info!("no panel showed the tray item; showing the window");
+            self.tray_wait = None;
+            self.wants_show = true;
+        }
+    }
+
+    /// How the Settings row shows the login registration: the person's
+    /// pick while the system catches up, then what the system has.
+    pub fn start_with_computer(&self) -> Option<fastframe_autostart::Start> {
+        match self.autostart_wanted {
+            Some(wanted) => wanted,
+            None => self.autostart.and_then(fastframe_autostart::State::start),
+        }
+    }
+
+    /// Reads the login registration again, so a change made in the
+    /// system's own settings shows, unless a change of ours is on its way.
+    pub fn refresh_autostart(&mut self) {
+        if !self.autostart_busy && self.autostart_wanted.is_none() {
+            self.send_autostart(crate::backend::AutostartRequest::Read);
+        }
+    }
+
+    fn send_autostart(&mut self, request: crate::backend::AutostartRequest) {
+        self.autostart_busy = true;
+        if self.autostart_live {
+            self.backend.send(Command::Autostart(request));
+        } else {
+            #[cfg(test)]
+            self.autostart_sent.push(request);
+        }
+    }
+
+    /// Takes the registration's answer, then sends the person's newer pick
+    /// if one came while it was on its way.
+    fn on_autostart(
+        &mut self,
+        request: crate::backend::AutostartRequest,
+        result: Result<fastframe_autostart::State, String>,
+    ) {
+        use crate::backend::AutostartRequest;
+        self.autostart_busy = false;
+        match result {
+            Ok(state) => {
+                self.autostart = Some(state);
+                if let AutostartRequest::Set(asked) = request
+                    && self.autostart_wanted == Some(asked)
+                {
+                    self.autostart_wanted = None;
+                }
+            }
+            Err(error) => {
+                log::warn!("couldn't change how Spotifast starts at login: {error}");
+                self.toast_error(gettext(
+                    self.locale,
+                    "Couldn't change how Spotifast starts with your computer.",
+                ));
+                // Show what the system really has.
+                self.autostart_wanted = None;
+                self.send_autostart(AutostartRequest::Read);
+                return;
+            }
+        }
+        if let Some(wanted) = self.autostart_wanted {
+            self.send_autostart(AutostartRequest::Set(wanted));
+        }
     }
 
     // ---- derived state -----------------------------------------------------
@@ -2290,6 +2443,7 @@ impl App {
                     }
                 }
                 Event::Receivers(receivers) => self.receivers = receivers,
+                Event::Autostart { request, result } => self.on_autostart(request, result),
                 Event::OutputDevices(result) => {
                     self.output_devices = match result {
                         Ok(names) => Loadable::Loaded(names),
@@ -4928,7 +5082,7 @@ impl App {
                     self.refresh_queue(true);
                 }
             }
-            Page::Settings => {}
+            Page::Settings => self.refresh_autostart(),
         }
     }
 
@@ -11205,6 +11359,12 @@ impl App {
             Action::SettingsChanged => {
                 self.settings_dirty = true;
                 ctx.set_theme(self.theme_preference());
+            }
+            Action::SetStartWithComputer(start) => {
+                self.autostart_wanted = Some(start);
+                if !self.autostart_busy {
+                    self.send_autostart(crate::backend::AutostartRequest::Set(start));
+                }
             }
             Action::ListOutputDevices => {
                 // An earlier list stays on screen until the new one arrives.
@@ -19097,6 +19257,114 @@ mod tests {
         }
     }
 
+    /// A pick reaches the registration at once and shows meanwhile; a pick
+    /// made while the system answers waits for that answer, so two changes
+    /// never race; the system's answer then is what the row shows.
+    #[test]
+    fn start_with_computer_picks_are_sent_one_at_a_time() {
+        use crate::backend::AutostartRequest;
+        use fastframe_autostart::{Start, State};
+        let mut app = test_app("autostart-picks");
+        let ctx = egui::Context::default();
+        app.autostart = Some(State::Off);
+        app.apply(Action::SetStartWithComputer(Some(Start::Hidden)), &ctx);
+        assert_eq!(
+            app.start_with_computer(),
+            Some(Start::Hidden),
+            "shown at once"
+        );
+        app.apply(Action::SetStartWithComputer(Some(Start::Window)), &ctx);
+        assert_eq!(app.start_with_computer(), Some(Start::Window));
+        assert_eq!(
+            app.autostart_sent,
+            [AutostartRequest::Set(Some(Start::Hidden))],
+            "the second waits for the first"
+        );
+        app.on_autostart(
+            AutostartRequest::Set(Some(Start::Hidden)),
+            Ok(State::On(Start::Hidden)),
+        );
+        assert_eq!(
+            app.start_with_computer(),
+            Some(Start::Window),
+            "the newer pick still shows"
+        );
+        assert_eq!(
+            app.autostart_sent.last(),
+            Some(&AutostartRequest::Set(Some(Start::Window)))
+        );
+        app.on_autostart(
+            AutostartRequest::Set(Some(Start::Window)),
+            Ok(State::On(Start::Window)),
+        );
+        assert_eq!(app.autostart_wanted, None);
+        assert_eq!(app.start_with_computer(), Some(Start::Window));
+        assert_eq!(app.autostart_sent.len(), 2);
+        // Opening Settings reads the system again, for changes made there.
+        app.refresh_autostart();
+        assert_eq!(app.autostart_sent.last(), Some(&AutostartRequest::Read));
+        app.on_autostart(AutostartRequest::Read, Ok(State::Off));
+        assert_eq!(app.start_with_computer(), None);
+        app.backend.shutdown();
+    }
+
+    /// A refusal (the Flatpak portal, a missing agent) puts back what the
+    /// system has and says so.
+    #[test]
+    fn a_failed_start_with_computer_shows_the_systems_state_again() {
+        use crate::backend::AutostartRequest;
+        use fastframe_autostart::{Start, State};
+        let mut app = test_app("autostart-failure");
+        let ctx = egui::Context::default();
+        app.autostart = Some(State::Off);
+        app.apply(Action::SetStartWithComputer(Some(Start::Window)), &ctx);
+        app.on_autostart(
+            AutostartRequest::Set(Some(Start::Window)),
+            Err("not allowed".into()),
+        );
+        assert_eq!(app.start_with_computer(), None);
+        assert_eq!(app.autostart_sent.last(), Some(&AutostartRequest::Read));
+        assert!(
+            app.toasts
+                .iter()
+                .any(|toast| toast.message.contains("starts with your computer"))
+        );
+        app.backend.shutdown();
+    }
+
+    /// No tray, or closing set to quit: a start in the tray opens the window.
+    #[test]
+    fn a_hidden_start_without_a_way_back_opens_the_window() {
+        use fastframe_shell::Resident;
+        let mut app = test_app("hidden-start-no-tray");
+        assert!(app.tray.is_none());
+        assert!(!Resident::start_hidden(&mut app));
+        assert!(!app.window_hidden);
+        app.backend.shutdown();
+    }
+
+    /// A tray no panel shows yet may only be early at login; with none by
+    /// the deadline the window opens, since nothing could bring it back.
+    #[test]
+    fn a_hidden_start_waits_for_a_panel_then_shows_the_window() {
+        let mut app = test_app("hidden-start-tray-wait");
+        let started = Instant::now();
+        app.tray_wait = Some(started + TRAY_WAIT);
+        app.check_tray_wait(started + Duration::from_secs(5), false);
+        assert!(!app.wants_show, "still early");
+        app.check_tray_wait(started + TRAY_WAIT, false);
+        assert!(app.wants_show, "no panel came");
+        assert_eq!(app.tray_wait, None);
+
+        app.wants_show = false;
+        app.tray_wait = Some(started + TRAY_WAIT);
+        app.check_tray_wait(started + Duration::from_secs(5), true);
+        assert_eq!(app.tray_wait, None, "a panel shows the item");
+        app.check_tray_wait(started + TRAY_WAIT, false);
+        assert!(!app.wants_show);
+        app.backend.shutdown();
+    }
+
     fn test_app(name: &str) -> App {
         let root =
             std::env::temp_dir().join(format!("spotifast-{name}-test-{}", std::process::id()));
@@ -19113,6 +19381,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.reveal_theme_changes = false;
@@ -19750,6 +20019,7 @@ mod tests {
                     media_controls: false,
                     restore_sign_in: false,
                     tray: false,
+                    autostart: false,
                 },
             );
             restored.backend.shutdown();
@@ -19805,6 +20075,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         restarted.backend.shutdown();
@@ -20720,6 +20991,7 @@ mod tests {
             media_controls: false,
             restore_sign_in: false,
             tray: false,
+            autostart: false,
         };
         let mut app = App::new(
             &Waker::default(),
@@ -20741,6 +21013,7 @@ mod tests {
             media_controls: false,
             restore_sign_in: false,
             tray: false,
+            autostart: false,
         };
         let app = App::new(&Waker::default(), dirs, Settings::default(), options);
         let (_, next) = queue_uris(&app);
@@ -22110,6 +22383,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.local_ready = true;
@@ -27115,6 +27389,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         assert!(app.settings.proxy_password_legacy);
@@ -28902,6 +29177,7 @@ mod tests {
             media_controls: false,
             restore_sign_in: false,
             tray: false,
+            autostart: false,
         };
         let entries = vec![
             crate::player::RootlistEntry::FolderStart {

@@ -619,6 +619,17 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let apply_playback_note = gettext(locale, "Restart local playback to apply these settings.");
     let download_updates = gettext(locale, "Download updates automatically");
     let show_in_dock = gettext(locale, "Show in Dock");
+    let start_with_computer = gettext(locale, "Start with your computer");
+    let start_choice = app.start_with_computer();
+    let start_detail = start_with_computer_detail(
+        locale,
+        app.autostart,
+        start_choice,
+        app.settings.keep_playing_in_background,
+    );
+    let start_available = app
+        .autostart
+        .is_some_and(|state| state != fastframe_autostart::State::Unsupported);
     let playback_rows = [
         RowText::new(
             // Translators: {status} is a playback state such as Ready or Not set up.
@@ -715,6 +726,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             gettext(locale, "White or black can match your panel or taskbar."),
         )
         .when(!cfg!(target_os = "macos")),
+        RowText::new(start_with_computer.clone(), start_detail).when(start_available),
     ];
     if section_matches(&needle, &playback, &playback_rows) {
         any_visible = true;
@@ -918,6 +930,17 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                             });
                         }
                     },
+                );
+            }
+            if start_available {
+                start_with_computer_row(
+                    app,
+                    ui,
+                    &palette,
+                    &needle,
+                    &playback,
+                    &playback_rows[18],
+                    start_choice,
                 );
             }
             #[cfg(target_os = "macos")]
@@ -2287,6 +2310,94 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     }
 }
 
+/// The choices for starting with the computer, left to right when side by
+/// side and top to bottom in a column.
+fn start_with_computer_choices(
+    locale: crate::i18n::Locale,
+) -> [(
+    Option<fastframe_autostart::Start>,
+    std::borrow::Cow<'static, str>,
+); 3] {
+    use fastframe_autostart::Start;
+    [
+        (None, pgettext(locale, "start with your computer", "Off")),
+        (Some(Start::Window), gettext(locale, "With the window")),
+        (Some(Start::Hidden), gettext(locale, "In the tray")),
+    ]
+}
+
+/// What the row says under its title: how to finish a registration the
+/// system holds for approval, why a start in the tray opens the window
+/// while nothing keeps Spotifast there, or what the choices do.
+fn start_with_computer_detail(
+    locale: crate::i18n::Locale,
+    state: Option<fastframe_autostart::State>,
+    choice: Option<fastframe_autostart::Start>,
+    keeps_running: bool,
+) -> std::borrow::Cow<'static, str> {
+    use fastframe_autostart::{Start, State};
+    if matches!(state, Some(State::NeedsApproval(_))) && choice.is_some() {
+        gettext(
+            locale,
+            "Allow Spotifast in System Settings, General, Login Items.",
+        )
+    } else if choice == Some(Start::Hidden) && !keeps_running {
+        gettext(
+            locale,
+            "Starting in the tray needs Keep music playing when the window closes. Until then, the window opens.",
+        )
+    } else {
+        gettext(
+            locale,
+            "Open Spotifast when you log in, with its window or in the tray.",
+        )
+    }
+}
+
+fn start_with_computer_row(
+    app: &mut App,
+    ui: &mut egui::Ui,
+    palette: &Palette,
+    needle: &str,
+    section: &str,
+    row: &RowText<'_>,
+    current: Option<fastframe_autostart::Start>,
+) {
+    let choices = start_with_computer_choices(app.locale);
+    let gap = 6.0;
+    let width = choices
+        .iter()
+        .map(|(_, label)| theme::soft_button_width(ui, label))
+        .sum::<f32>()
+        + gap * (choices.len() - 1) as f32;
+    filtered_row_sized(ui, palette, needle, section, row, width, |ui| {
+        let mut choose =
+            |ui: &mut egui::Ui, start: Option<fastframe_autostart::Start>, label: &str| {
+                if theme::soft_button(ui, palette, None, label, current == start).clicked()
+                    && current != start
+                {
+                    app.actions.push(Action::SetStartWithComputer(start));
+                }
+            };
+        if ui.available_width() >= width {
+            // Laid right to left, so the last choice goes first.
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = gap;
+                for (start, label) in choices.iter().rev() {
+                    choose(ui, *start, label);
+                }
+            });
+        } else {
+            ui.with_layout(Layout::top_down(Align::Max), |ui| {
+                ui.spacing_mut().item_spacing.y = gap;
+                for (start, label) in &choices {
+                    choose(ui, *start, label);
+                }
+            });
+        }
+    });
+}
+
 /// A band's frequency the short way: 60, 170, 1K, 16K.
 /// The interface language: System first, then each language by its own name,
 /// so a reader can find theirs whatever language the app is showing.
@@ -2471,6 +2582,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         let ctx = egui::Context::default();

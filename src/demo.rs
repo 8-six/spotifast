@@ -340,6 +340,8 @@ fn demo_local_rows(app: &mut App) {
 pub fn populate(app: &mut App) {
     app.backend.set_offline(true);
     app.offline = true;
+    // A demo never reads the real login registration; it shows it off.
+    app.autostart = Some(fastframe_autostart::State::Off);
     app.auth = AuthStatus::Connected {
         username: "demo".into(),
     };
@@ -1422,6 +1424,11 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
             }
             "small" => app.settings.skin_scale = Some(1),
             "windows-taskbar" => app.demo_windows_controls = true,
+            "start-in-tray" => {
+                app.autostart = Some(fastframe_autostart::State::On(
+                    fastframe_autostart::Start::Hidden,
+                ));
+            }
             "compact" => {
                 app.settings.sidebar_compact = true;
                 app.settings.tracklist_compact = true;
@@ -1635,6 +1642,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -5672,6 +5680,54 @@ mod tests {
         app.backend.shutdown();
     }
 
+    /// Settings offers Off, the window and the tray for a start at login,
+    /// and a pick is an action; a run that cannot register shows no row.
+    #[test]
+    fn start_with_computer_offers_three_choices_and_asks_for_the_pick() {
+        use fastframe_autostart::{Start, State};
+        let (ctx, mut app) = accessible_app("start-with-computer");
+        app.backend.shutdown();
+        ctx.data_mut(|data| {
+            data.insert_temp(egui::Id::new("settings-filter"), "Start with".to_string())
+        });
+        for _ in 0..3 {
+            view_frame(&ctx, &mut app, vec![], crate::ui::settings::show);
+        }
+        let painted = view_frame(&ctx, &mut app, vec![], crate::ui::settings::show);
+        sidebar_text(&painted, "Start with your computer");
+        sidebar_text(&painted, "Off");
+        sidebar_text(&painted, "With the window");
+        let tray = sidebar_text(&painted, "In the tray").center();
+        view_frame(
+            &ctx,
+            &mut app,
+            pointer_click(tray, egui::PointerButton::Primary),
+            crate::ui::settings::show,
+        );
+        assert!(matches!(
+            app.actions.as_slice(),
+            [Action::SetStartWithComputer(Some(Start::Hidden))]
+        ));
+        app.actions.clear();
+
+        // Off keeps the tray out of reach: the row says the window opens.
+        app.autostart = Some(State::On(Start::Hidden));
+        app.settings.keep_playing_in_background = false;
+        let painted = view_frame(&ctx, &mut app, vec![], crate::ui::settings::show);
+        assert!(painted.iter().any(|(text, _)| {
+            text.starts_with(
+                "Starting in the tray needs Keep music playing when the window closes.",
+            )
+        }));
+
+        app.autostart = Some(State::Unsupported);
+        let painted = view_frame(&ctx, &mut app, vec![], crate::ui::settings::show);
+        assert!(
+            !painted.iter().any(|(text, _)| text == "In the tray"),
+            "nothing to offer where nothing can be registered"
+        );
+    }
+
     #[test]
     fn themes_folder_button_is_visible_accessible_and_emits_an_action() {
         let (ctx, mut app) = accessible_app("themes-folder-button");
@@ -6460,6 +6516,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -6534,6 +6591,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -6648,6 +6706,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -6729,6 +6788,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -6815,6 +6875,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -6895,6 +6956,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -6991,6 +7053,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -7264,6 +7327,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -7335,6 +7399,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -7453,6 +7518,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -7521,6 +7587,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -7963,6 +8030,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -8979,6 +9047,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -9057,6 +9126,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -9851,6 +9921,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);
@@ -10144,6 +10215,7 @@ mod tests {
                 media_controls: false,
                 restore_sign_in: false,
                 tray: false,
+                autostart: false,
             },
         );
         app.attach(&ctx);

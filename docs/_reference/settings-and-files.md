@@ -33,6 +33,19 @@ Spotifast follows each platform's conventions. On Linux:
 | Last run's log | `~/.local/state/spotifast/spotifast.log` | Always |
 | Crash log | `~/.local/state/spotifast/panic.log` | Always |
 
+Starting with your computer (Settings > Playback on this computer) is kept
+where each system keeps it, not in `settings.json`:
+
+| Platform | Where |
+| --- | --- |
+| Linux | `~/.config/autostart/spotifast.desktop` (`$XDG_CONFIG_HOME/autostart`), which runs `spotifast`, with `--start-hidden` for the tray |
+| Flatpak | Registered through the background portal; Spotifast keeps a copy of what it asked for in `~/.var/app/rocks.spotifast.Spotifast/config/autostart/spotifast.desktop` |
+| macOS 13 and later | Login Items: Spotifast itself to open with the window, or the `rocks.spotifast.Spotifast.autostart` agent inside the app, which opens it with `--start-hidden` |
+| Windows | The `Spotifast` value under `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run` |
+
+Deleting the entry turns it off. Uninstalling Spotifast does not remove the
+Linux or Windows entry; choose **Off** first.
+
 Clearing caches never signs you out. Sign-out from Settings covers the shared
 and personal Web API grants and the independent playback credential. It also
 removes the cached library of every account: playlist pages, the playlist
@@ -346,8 +359,14 @@ spotifast [OPTIONS] [LINK]
   LINK                  A Spotify link to open: spotify:track:…, or an
                         open.spotify.com address
   --device-name <NAME>  Spotify Connect name for this session
+  --start-hidden        Start in the tray, without a window
   -v, --verbose         More logs from librespot and the API client
 ```
+
+`--start-hidden` is what **Start with your computer > In the tray** runs at
+login. Without the tray, or with **Keep music playing when the window closes**
+off, the window opens anyway. A link, or a restart after an update, opens the
+window too. When Spotifast is already running, it stays as it is.
 
 A link goes to the running Spotifast when there is one, which then opens
 the page and brings its window forward; otherwise the app starts on it. The
@@ -369,7 +388,7 @@ and `--demo-show` adds surfaces on top of it: a comma separated list of
 `focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`,
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
-`library-grid-wide`, `eq-user-presets`, `rtl`, `player-bar-spectrum`, `player-bar-waveform`,
+`library-grid-wide`, `eq-user-presets`, `start-in-tray`, `rtl`, `player-bar-spectrum`, `player-bar-waveform`,
 `lyrics-fullscreen-view`, `lyrics-fullscreen-instrumental`, `signed-out`, and `connecting`. The Library variants show the list or cover grid with
 a normal, narrow, or wide sidebar and collapsed artwork for matching captures.
 `shuffle-selected` and `shuffle-started` capture the selected-mode and
@@ -384,6 +403,8 @@ sound on this computer with that player bar visualizer on.
 `lyrics-fullscreen-view` and `lyrics-fullscreen-instrumental` draw full-screen
 lyrics, with words or without, at the window's own size.
 `eq-user-presets` saves a sample equalizer preset and puts it in use.
+`start-in-tray` shows **Start with your computer** set to **In the tray**;
+demo mode never reads or changes the real login entry.
 `rtl` gives the first songs of `playlist:pl1` invented Hebrew and Arabic
 titles, some mixed with English, numbers, and brackets.
 `collection-loading` keeps known collection metadata and placeholder artwork

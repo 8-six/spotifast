@@ -42,6 +42,9 @@ You can rename it in Settings.
 - **The tray icon can match your panel.** On Linux and Windows, **Settings >
   Playback on this computer > Tray icon** shows it in colour, white or black.
   The macOS menu bar already draws it black or white to match itself.
+- **Spotifast can start with your computer.** Under **Settings > Playback on
+  this computer**, **Start with your computer** opens it when you log in,
+  **With the window** or quietly **In the tray**.
 - **Play and Pause fade.** With the default audio settings, music played on
   this computer fades in or out to avoid a hard cut.
 - **Play buttons show progress.** The button spins until Spotify responds.
