@@ -41,6 +41,10 @@ You can rename it in Settings.
 - **Play and Pause fade.** With the default audio settings, music played on
   this computer fades in or out to avoid a hard cut.
 - **Play buttons show progress.** The button spins until Spotify responds.
+- **Pages keep their shape while they load.** Until Spotify answers, grey
+  rows and cards in the shape of the songs, albums and playlists to come
+  stand in for them. A list that is loading more at its end still shows
+  **Loading…**.
 - **Artist names are links.** Click a credited artist in the player bar to
   open their page, even while the rest of the song's details are loading.
 - **Common actions have shortcuts.** Space plays and pauses, Ctrl+F or `/`

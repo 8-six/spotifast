@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 20:47+0200\n"
+"POT-Creation-Date: 2026-10-17 20:51+0200\n"
 "PO-Revision-Date: 2026-10-15 12:00+0900\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: Korean\n"
@@ -29,12 +29,12 @@ msgid "Play {name}"
 msgstr "{name} 재생"
 
 #: src/ui/sidebar.rs:302 src/app.rs:2980 src/app.rs:20154
-#: src/ui/collection.rs:2006 src/ui/collection.rs:2221
+#: src/ui/collection.rs:2010 src/ui/collection.rs:2225
 msgid "Playlist"
 msgstr "플레이리스트"
 
 #: src/ui/sidebar.rs:312 src/app.rs:2954 src/app.rs:20159
-#: src/ui/collection.rs:2214 src/ui/home.rs:92 src/ui/keys.rs:264
+#: src/ui/collection.rs:2218 src/ui/home.rs:92 src/ui/keys.rs:264
 #: src/ui/winamp/playlist.rs:653
 msgid "Liked Songs"
 msgstr "좋아요 표시한 곡"
@@ -139,8 +139,8 @@ msgstr "내가 만든 항목"
 msgid "Search in Your Library"
 msgstr "내 라이브러리에서 검색"
 
-#: src/ui/sidebar.rs:1243 src/app.rs:3015 src/ui/artist.rs:216
-#: src/ui/artist.rs:359 src/ui/home.rs:712 src/ui/library.rs:101
+#: src/ui/sidebar.rs:1243 src/app.rs:3015 src/ui/artist.rs:218
+#: src/ui/artist.rs:361 src/ui/home.rs:712 src/ui/library.rs:101
 #: src/ui/search.rs:159 src/ui/search.rs:490 src/ui/winamp/playlist.rs:746
 msgid "Artist"
 msgstr "아티스트"
@@ -164,7 +164,7 @@ msgid "Sort by recently played"
 msgstr "최근 재생순으로 정렬"
 
 #: src/ui/sidebar.rs:1988 src/ui/player_bar.rs:768 src/ui/widgets.rs:1182
-#: src/ui/artist.rs:390 src/ui/collection.rs:289 src/ui/prerelease.rs:309
+#: src/ui/artist.rs:392 src/ui/collection.rs:289 src/ui/prerelease.rs:309
 #: src/ui/search.rs:408 src/ui/show.rs:389
 msgid "Play"
 msgstr "재생"
@@ -187,7 +187,7 @@ msgstr[0] "플레이리스트 • {count}곡"
 #. Translators: Keep {count} exactly as written. It becomes a number of songs.
 #. Translators: Keep {count} exactly as written. It becomes the number of selected songs.
 #. Translators: {count} is a number of songs.
-#: src/i18n.rs:201 src/ui/widgets.rs:696 src/ui/collection.rs:2309
+#: src/i18n.rs:201 src/ui/widgets.rs:696 src/ui/collection.rs:2313
 #, rust-format
 msgid "{count} song"
 msgid_plural "{count} songs"
@@ -346,8 +346,8 @@ msgstr "다음 재생 항목"
 msgid "Next up"
 msgstr "다음 재생"
 
-#: src/ui/queue.rs:624 src/ui/queue.rs:657 src/ui/widgets.rs:2736
-#: src/ui/collection.rs:1195 src/ui/prerelease.rs:242
+#: src/ui/queue.rs:624 src/ui/queue.rs:657 src/ui/widgets.rs:2825
+#: src/ui/collection.rs:1199 src/ui/prerelease.rs:242
 msgid "Retry"
 msgstr "다시 시도"
 
@@ -376,21 +376,21 @@ msgstr "따라가기"
 msgid "Play a song to see its lyrics."
 msgstr "가사를 보려면 곡을 재생하세요."
 
-#: src/ui/lyrics.rs:143 src/ui/lyrics.rs:160 src/ui/artist.rs:274
-#: src/ui/artist.rs:302 src/ui/collection.rs:655 src/ui/collection.rs:1594
-#: src/ui/collection.rs:1724 src/ui/collection.rs:1750
-#: src/ui/collection.rs:1814 src/ui/collection.rs:1923
-#: src/ui/collection.rs:1949 src/ui/collection.rs:2194 src/ui/home.rs:25
+#: src/ui/lyrics.rs:143 src/ui/lyrics.rs:160 src/ui/artist.rs:276
+#: src/ui/artist.rs:304 src/ui/collection.rs:655 src/ui/collection.rs:1598
+#: src/ui/collection.rs:1728 src/ui/collection.rs:1754
+#: src/ui/collection.rs:1818 src/ui/collection.rs:1927
+#: src/ui/collection.rs:1953 src/ui/collection.rs:2198 src/ui/home.rs:25
 #: src/ui/library.rs:259 src/ui/search.rs:91 src/ui/show.rs:66
 #: src/ui/show.rs:112 src/ui/show.rs:142
 msgid "You're offline"
 msgstr "오프라인 상태입니다"
 
-#: src/ui/lyrics.rs:146 src/ui/lyrics.rs:163 src/ui/artist.rs:277
-#: src/ui/artist.rs:305 src/ui/collection.rs:658 src/ui/collection.rs:1597
-#: src/ui/collection.rs:1727 src/ui/collection.rs:1753
-#: src/ui/collection.rs:1817 src/ui/collection.rs:1926
-#: src/ui/collection.rs:1952 src/ui/collection.rs:2197 src/ui/home.rs:34
+#: src/ui/lyrics.rs:146 src/ui/lyrics.rs:163 src/ui/artist.rs:279
+#: src/ui/artist.rs:307 src/ui/collection.rs:658 src/ui/collection.rs:1601
+#: src/ui/collection.rs:1731 src/ui/collection.rs:1757
+#: src/ui/collection.rs:1821 src/ui/collection.rs:1930
+#: src/ui/collection.rs:1956 src/ui/collection.rs:2201 src/ui/home.rs:34
 #: src/ui/library.rs:262 src/ui/show.rs:69 src/ui/show.rs:115
 #: src/ui/show.rs:145
 msgid "Spotifast will reconnect automatically when your connection returns."
@@ -423,8 +423,8 @@ msgstr "연주곡"
 msgid "No timed lyrics for this track."
 msgstr "이 트랙에는 시간 동기화된 가사가 없습니다."
 
-#: src/ui/lyrics.rs:462 src/ui/widgets.rs:2702 src/app.rs:12094
-#: src/ui/collection.rs:851
+#: src/ui/lyrics.rs:462 src/ui/widgets.rs:2723 src/ui/widgets.rs:2763
+#: src/ui/widgets.rs:2791 src/app.rs:12094 src/ui/collection.rs:851
 msgid "Loading…"
 msgstr "불러오는 중…"
 
@@ -509,17 +509,17 @@ msgctxt "artist"
 msgid "Unfollow"
 msgstr "언팔로우"
 
-#: src/ui/widgets.rs:1215 src/ui/artist.rs:406
+#: src/ui/widgets.rs:1215 src/ui/artist.rs:408
 msgctxt "artist"
 msgid "Follow"
 msgstr "팔로우"
 
-#: src/ui/widgets.rs:1216 src/ui/collection.rs:2055 src/ui/collection.rs:2077
+#: src/ui/widgets.rs:1216 src/ui/collection.rs:2059 src/ui/collection.rs:2081
 #: src/ui/show.rs:241
 msgid "Remove from Your Library"
 msgstr "내 라이브러리에서 삭제"
 
-#: src/ui/widgets.rs:1217 src/ui/collection.rs:2054
+#: src/ui/widgets.rs:1217 src/ui/collection.rs:2058
 msgid "Add to Your Library"
 msgstr "내 라이브러리에 추가"
 
@@ -549,7 +549,7 @@ msgstr "아티스트 라디오로 이동"
 msgid "Play {title}, {subtitle}"
 msgstr "{title}, {subtitle} 재생"
 
-#: src/ui/widgets.rs:1979 src/ui/artist.rs:420 src/ui/collection.rs:392
+#: src/ui/widgets.rs:1979 src/ui/artist.rs:422 src/ui/collection.rs:392
 #: src/ui/show.rs:259 src/ui/show.rs:467
 msgid "More"
 msgstr "더 보기"
@@ -599,53 +599,53 @@ msgstr "추가한 날짜"
 msgid "Sort by duration"
 msgstr "재생 시간으로 정렬"
 
-#: src/ui/widgets.rs:2713 src/app.rs:12265 src/app.rs:12279
+#: src/ui/widgets.rs:2802 src/app.rs:12265 src/app.rs:12279
 msgid "Network connection error. Check your connection."
 msgstr "네트워크 연결 오류입니다. 연결 상태를 확인하세요."
 
-#: src/ui/widgets.rs:2971
+#: src/ui/widgets.rs:3060
 msgid "Cut"
 msgstr "잘라내기"
 
-#: src/ui/widgets.rs:2976
+#: src/ui/widgets.rs:3065
 msgid "Copy"
 msgstr "복사"
 
-#: src/ui/widgets.rs:2981
+#: src/ui/widgets.rs:3070
 msgid "Paste"
 msgstr "붙여넣기"
 
-#: src/ui/widgets.rs:2998
+#: src/ui/widgets.rs:3087
 msgid "Select all"
 msgstr "모두 선택"
 
-#: src/ui/widgets.rs:3105
+#: src/ui/widgets.rs:3194
 msgid "Clear"
 msgstr "지우기"
 
 #. Translators: {name} is replaced by the author's name, shown as a link.
-#: src/ui/widgets.rs:3150
+#: src/ui/widgets.rs:3239
 #, rust-format
 msgid "Built with love by {name}"
 msgstr "{name}이(가) 정성껏 만들었습니다"
 
-#: src/ui/widgets.rs:3295
+#: src/ui/widgets.rs:3384
 msgid "Host"
 msgstr "호스트"
 
-#: src/ui/widgets.rs:3312
+#: src/ui/widgets.rs:3401
 msgid "Port"
 msgstr "포트"
 
-#: src/ui/widgets.rs:3330
+#: src/ui/widgets.rs:3419
 msgid "Username"
 msgstr "사용자 이름"
 
-#: src/ui/widgets.rs:3341
+#: src/ui/widgets.rs:3430
 msgid "Password"
 msgstr "비밀번호"
 
-#: src/ui/widgets.rs:3359
+#: src/ui/widgets.rs:3448
 msgid ""
 "Proxy login applies to Web requests. Local playback uses this proxy only "
 "without a login."
@@ -653,7 +653,7 @@ msgstr ""
 "프록시 로그인은 웹 요청에 적용됩니다. 로컬 재생은 로그인이 없을 때만 이 프록"
 "시를 사용합니다."
 
-#: src/ui/widgets.rs:3363
+#: src/ui/widgets.rs:3452
 msgid ""
 "Spotify hostnames are resolved by the proxy. Local playback connects "
 "directly."
@@ -2065,23 +2065,23 @@ msgstr "디스코그래피"
 msgid "Nothing in this category."
 msgstr "이 카테고리에 항목이 없습니다."
 
-#: src/ui/artist.rs:217
+#: src/ui/artist.rs:219
 msgid "Fans also like"
 msgstr "팬들이 좋아하는 다른 아티스트"
 
 #. Translators: {count} is the number of people who follow an artist.
-#: src/ui/artist.rs:327
+#: src/ui/artist.rs:329
 #, rust-format
 msgid "{count} follower"
 msgid_plural "{count} followers"
 msgstr[0] "팔로워 {count}명"
 
-#: src/ui/artist.rs:381 src/ui/collection.rs:275 src/ui/show.rs:218
+#: src/ui/artist.rs:383 src/ui/collection.rs:275 src/ui/show.rs:218
 #: src/ui/show.rs:376
 msgid "Starting…"
 msgstr "시작하는 중…"
 
-#: src/ui/artist.rs:404
+#: src/ui/artist.rs:406
 msgctxt "artist"
 msgid "Following"
 msgstr "팔로잉"
@@ -2122,36 +2122,36 @@ msgstr "사용할 수 없음"
 msgid "You're offline. Reconnect to load more songs."
 msgstr "오프라인 상태입니다. 곡을 더 불러오려면 다시 연결하세요."
 
-#: src/ui/collection.rs:1000
+#: src/ui/collection.rs:1004
 msgid "Nothing here yet"
 msgstr "아직 아무것도 없습니다"
 
-#: src/ui/collection.rs:1001
+#: src/ui/collection.rs:1005
 msgid "Added songs appear here."
 msgstr "추가한 곡이 여기에 표시됩니다."
 
-#: src/ui/collection.rs:1500 src/ui/home.rs:825
+#: src/ui/collection.rs:1504 src/ui/home.rs:825
 msgid "Your top songs"
 msgstr "내 인기 곡"
 
-#: src/ui/collection.rs:1509
+#: src/ui/collection.rs:1513
 msgid "Your most-played tracks from the last four weeks."
 msgstr "지난 4주 동안 가장 많이 재생한 트랙입니다."
 
-#: src/ui/collection.rs:2002
+#: src/ui/collection.rs:2006
 msgid "Collaborative Playlist"
 msgstr "공동 작업 플레이리스트"
 
-#: src/ui/collection.rs:2004
+#: src/ui/collection.rs:2008
 msgid "Public Playlist"
 msgstr "공개 플레이리스트"
 
-#: src/ui/collection.rs:2076
+#: src/ui/collection.rs:2080
 msgid "Save to Your Library"
 msgstr "내 라이브러리에 저장"
 
 #. Translators: {count} is the number of people who saved a playlist.
-#: src/ui/collection.rs:2321
+#: src/ui/collection.rs:2325
 #, rust-format
 msgid "{count} save"
 msgid_plural "{count} saves"
@@ -2159,26 +2159,26 @@ msgstr[0] "저장 {count}회"
 
 #. Translators: {count} is a number of songs and {duration} their total
 #. length, such as "2 hr 13 min".
-#: src/ui/collection.rs:2334
+#: src/ui/collection.rs:2338
 #, rust-format
 msgid "{count} song, {duration}"
 msgid_plural "{count} songs, {duration}"
 msgstr[0] "{count}곡, {duration}"
 
 #. Translators: {name} is the name of someone who added songs to the playlist.
-#: src/ui/collection.rs:2404
+#: src/ui/collection.rs:2408
 #, rust-format
 msgid "with {name}"
 msgstr "{name} 참여"
 
 #. Translators: {first} and {second} are names of people who added songs.
-#: src/ui/collection.rs:2408
+#: src/ui/collection.rs:2412
 #, rust-format
 msgid "with {first} and {second}"
 msgstr "{first}, {second} 참여"
 
 #. Translators: {count} is how many other people added songs to the playlist.
-#: src/ui/collection.rs:2415
+#: src/ui/collection.rs:2419
 #, rust-format
 msgid "and {count} other"
 msgid_plural "and {count} others"

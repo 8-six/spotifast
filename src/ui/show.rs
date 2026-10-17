@@ -121,7 +121,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, id: &str) {
                         show_actions(app, ui, show, None, true);
                     });
                 }
-                widgets::loading_row(ui, &palette, app.locale);
+                widgets::skeleton_rows(ui, &palette, app.locale, 6);
             }
         }
         Loadable::Failed(error) => {

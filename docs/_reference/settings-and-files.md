@@ -362,7 +362,7 @@ settings.
 
 `--demo-page` opens a page, such as `home`, `playlist:pl1`, or `artist:art0`,
 and `--demo-show` adds surfaces on top of it: a comma separated list of
-`queue`, `playing-next`, `devices`, `audio-outputs`, `shortcuts`, `premium`, `create`, `duplicate`, `light`,
+`queue`, `playing-next`, `devices`, `home-loading`, `audio-outputs`, `shortcuts`, `premium`, `create`, `duplicate`, `light`,
 `focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`,
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
@@ -385,6 +385,7 @@ lyrics, with words or without, at the window's own size.
 titles, some mixed with English, numbers, and brackets.
 `collection-loading` keeps known collection metadata and placeholder artwork
 visible while replacing the page content, with unfinished controls disabled.
+`home-loading` shows Home while its shelves are still loading.
 `--demo-language <TAG>` shows the interface in one of the bundled languages,
 such as `es` or `ja`, in place of the saved setting and the system's language.
 

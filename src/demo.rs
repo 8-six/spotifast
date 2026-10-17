@@ -1021,6 +1021,13 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                 }
             }
             "devices" => app.show_devices = true,
+            // Home while Spotify has yet to answer for its shelves.
+            "home-loading" => {
+                app.home.recently_played = Loadable::Loading;
+                app.home.top_artists = Loadable::Loading;
+                app.home.made_for_you = Loadable::Loading;
+                app.home.top_mixes = Loadable::NotLoaded;
+            }
             // The device picker's audio outputs, as Spotifast's own output
             // lists them: Linux's default PulseAudio backend has none.
             "audio-outputs" => {
@@ -5134,13 +5141,69 @@ mod tests {
             let painted = view_frame(&ctx, &mut app, vec![], view);
             let title = painted.iter().find(|(text, _)| text == title).unwrap().1;
             assert!(painted.iter().any(|(text, _)| text.contains(detail)));
-            let loading = painted
+            // The songs to come are skeleton rows, which screen readers
+            // hear as Loading…, below the known header (#674).
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1280.0, 2200.0),
+                    )),
+                    ..Default::default()
+                },
+                |ui| view(&mut app, ui),
+            );
+            output.textures_delta.clear();
+            let tree = output.platform_output.accesskit_update.unwrap();
+            let loading = tree
+                .nodes
                 .iter()
-                .find(|(text, _)| text == "Loading…")
-                .unwrap()
-                .1;
-            assert!(loading.top() > title.bottom());
+                .find(|(_, node)| {
+                    node.label() == Some("Loading…") || node.value() == Some("Loading…")
+                })
+                .and_then(|(_, node)| node.bounds())
+                .expect("a loading skeleton");
+            assert!(loading.y0 as f32 > title.bottom());
+            assert!(
+                !painted.iter().any(|(text, _)| text == "Loading…"),
+                "no spinner row"
+            );
         }
+        app.backend.shutdown();
+    }
+
+    /// Home's shelves wait in card-shaped skeletons, not a spinner row, each
+    /// heard as Loading… (#674).
+    #[test]
+    fn loading_home_shelves_show_card_skeletons() {
+        let (ctx, mut app) = accessible_app("loading-home");
+        app.home.recently_played = Loadable::Loading;
+        app.home.top_artists = Loadable::Loading;
+        app.home.made_for_you = Loadable::Loading;
+        let view = crate::ui::home::show;
+        view_frame(&ctx, &mut app, vec![], view);
+        let painted = view_frame(&ctx, &mut app, vec![], view);
+        assert!(!painted.iter().any(|(text, _)| text == "Loading…"));
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1280.0, 2200.0),
+                )),
+                ..Default::default()
+            },
+            |ui| view(&mut app, ui),
+        );
+        output.textures_delta.clear();
+        let tree = output.platform_output.accesskit_update.unwrap();
+        let skeletons = tree
+            .nodes
+            .iter()
+            .filter(|(_, node)| {
+                node.value() == Some("Loading…") || node.label() == Some("Loading…")
+            })
+            .count();
+        assert_eq!(skeletons, 3, "one per loading shelf");
         app.backend.shutdown();
     }
 

@@ -341,7 +341,7 @@ fn made_for_you(app: &mut App, ui: &mut egui::Ui) {
         &gettext(app.locale, "Made for you"),
         |ui| {
             if playlists.is_empty() && loading {
-                widgets::loading_row(ui, &palette, app.locale);
+                widgets::skeleton_cards(ui, &palette, app.locale, 7, false);
             } else if playlists.is_empty()
                 && let Some(message) = &failure
             {
@@ -436,7 +436,7 @@ fn recently_played(app: &mut App, ui: &mut egui::Ui) {
                 &palette,
                 "recent",
                 &gettext(app.locale, "Recently played"),
-                |ui| widgets::loading_row(ui, &palette, app.locale),
+                |ui| widgets::skeleton_cards(ui, &palette, app.locale, 7, false),
             );
             return;
         }
@@ -673,7 +673,7 @@ fn top_artists(app: &mut App, ui: &mut egui::Ui) {
                 &palette,
                 "top-artists",
                 &gettext(app.locale, "Your top artists"),
-                |ui| widgets::loading_row(ui, &palette, app.locale),
+                |ui| widgets::skeleton_cards(ui, &palette, app.locale, 7, true),
             );
             return;
         }
@@ -758,7 +758,7 @@ fn track_list(
             } else {
                 theme::section_title(ui, &palette, title);
             }
-            widgets::loading_row(ui, &palette, app.locale);
+            widgets::skeleton_rows(ui, &palette, app.locale, 4);
             ui.add_space(12.0);
             return;
         }

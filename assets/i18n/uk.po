@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 20:47+0200\n"
+"POT-Creation-Date: 2026-10-17 20:51+0200\n"
 "PO-Revision-Date: 2026-10-06 18:00+0300\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: Ukrainian\n"
@@ -30,12 +30,12 @@ msgid "Play {name}"
 msgstr "Відтворити {name}"
 
 #: src/ui/sidebar.rs:302 src/app.rs:2980 src/app.rs:20154
-#: src/ui/collection.rs:2006 src/ui/collection.rs:2221
+#: src/ui/collection.rs:2010 src/ui/collection.rs:2225
 msgid "Playlist"
 msgstr "Плейліст"
 
 #: src/ui/sidebar.rs:312 src/app.rs:2954 src/app.rs:20159
-#: src/ui/collection.rs:2214 src/ui/home.rs:92 src/ui/keys.rs:264
+#: src/ui/collection.rs:2218 src/ui/home.rs:92 src/ui/keys.rs:264
 #: src/ui/winamp/playlist.rs:653
 msgid "Liked Songs"
 msgstr "Пісні, що сподобалися"
@@ -140,8 +140,8 @@ msgstr "Створені вами"
 msgid "Search in Your Library"
 msgstr "Шукати в бібліотеці"
 
-#: src/ui/sidebar.rs:1243 src/app.rs:3015 src/ui/artist.rs:216
-#: src/ui/artist.rs:359 src/ui/home.rs:712 src/ui/library.rs:101
+#: src/ui/sidebar.rs:1243 src/app.rs:3015 src/ui/artist.rs:218
+#: src/ui/artist.rs:361 src/ui/home.rs:712 src/ui/library.rs:101
 #: src/ui/search.rs:159 src/ui/search.rs:490 src/ui/winamp/playlist.rs:746
 msgid "Artist"
 msgstr "Виконавець"
@@ -165,7 +165,7 @@ msgid "Sort by recently played"
 msgstr "Сортувати за нещодавно прослуханими"
 
 #: src/ui/sidebar.rs:1988 src/ui/player_bar.rs:768 src/ui/widgets.rs:1182
-#: src/ui/artist.rs:390 src/ui/collection.rs:289 src/ui/prerelease.rs:309
+#: src/ui/artist.rs:392 src/ui/collection.rs:289 src/ui/prerelease.rs:309
 #: src/ui/search.rs:408 src/ui/show.rs:389
 msgid "Play"
 msgstr "Відтворити"
@@ -190,7 +190,7 @@ msgstr[2] "Плейліст • {count} пісень"
 #. Translators: Keep {count} exactly as written. It becomes a number of songs.
 #. Translators: Keep {count} exactly as written. It becomes the number of selected songs.
 #. Translators: {count} is a number of songs.
-#: src/i18n.rs:201 src/ui/widgets.rs:696 src/ui/collection.rs:2309
+#: src/i18n.rs:201 src/ui/widgets.rs:696 src/ui/collection.rs:2313
 #, rust-format
 msgid "{count} song"
 msgid_plural "{count} songs"
@@ -355,8 +355,8 @@ msgstr "Далі в черзі"
 msgid "Next up"
 msgstr "Далі"
 
-#: src/ui/queue.rs:624 src/ui/queue.rs:657 src/ui/widgets.rs:2736
-#: src/ui/collection.rs:1195 src/ui/prerelease.rs:242
+#: src/ui/queue.rs:624 src/ui/queue.rs:657 src/ui/widgets.rs:2825
+#: src/ui/collection.rs:1199 src/ui/prerelease.rs:242
 msgid "Retry"
 msgstr "Повторити спробу"
 
@@ -385,21 +385,21 @@ msgstr "Стежити"
 msgid "Play a song to see its lyrics."
 msgstr "Увімкніть пісню, щоб побачити її текст."
 
-#: src/ui/lyrics.rs:143 src/ui/lyrics.rs:160 src/ui/artist.rs:274
-#: src/ui/artist.rs:302 src/ui/collection.rs:655 src/ui/collection.rs:1594
-#: src/ui/collection.rs:1724 src/ui/collection.rs:1750
-#: src/ui/collection.rs:1814 src/ui/collection.rs:1923
-#: src/ui/collection.rs:1949 src/ui/collection.rs:2194 src/ui/home.rs:25
+#: src/ui/lyrics.rs:143 src/ui/lyrics.rs:160 src/ui/artist.rs:276
+#: src/ui/artist.rs:304 src/ui/collection.rs:655 src/ui/collection.rs:1598
+#: src/ui/collection.rs:1728 src/ui/collection.rs:1754
+#: src/ui/collection.rs:1818 src/ui/collection.rs:1927
+#: src/ui/collection.rs:1953 src/ui/collection.rs:2198 src/ui/home.rs:25
 #: src/ui/library.rs:259 src/ui/search.rs:91 src/ui/show.rs:66
 #: src/ui/show.rs:112 src/ui/show.rs:142
 msgid "You're offline"
 msgstr "Немає підключення до мережі"
 
-#: src/ui/lyrics.rs:146 src/ui/lyrics.rs:163 src/ui/artist.rs:277
-#: src/ui/artist.rs:305 src/ui/collection.rs:658 src/ui/collection.rs:1597
-#: src/ui/collection.rs:1727 src/ui/collection.rs:1753
-#: src/ui/collection.rs:1817 src/ui/collection.rs:1926
-#: src/ui/collection.rs:1952 src/ui/collection.rs:2197 src/ui/home.rs:34
+#: src/ui/lyrics.rs:146 src/ui/lyrics.rs:163 src/ui/artist.rs:279
+#: src/ui/artist.rs:307 src/ui/collection.rs:658 src/ui/collection.rs:1601
+#: src/ui/collection.rs:1731 src/ui/collection.rs:1757
+#: src/ui/collection.rs:1821 src/ui/collection.rs:1930
+#: src/ui/collection.rs:1956 src/ui/collection.rs:2201 src/ui/home.rs:34
 #: src/ui/library.rs:262 src/ui/show.rs:69 src/ui/show.rs:115
 #: src/ui/show.rs:145
 msgid "Spotifast will reconnect automatically when your connection returns."
@@ -432,8 +432,8 @@ msgstr "Інструментальна композиція"
 msgid "No timed lyrics for this track."
 msgstr "Для цього треку немає синхронізованого тексту."
 
-#: src/ui/lyrics.rs:462 src/ui/widgets.rs:2702 src/app.rs:12094
-#: src/ui/collection.rs:851
+#: src/ui/lyrics.rs:462 src/ui/widgets.rs:2723 src/ui/widgets.rs:2763
+#: src/ui/widgets.rs:2791 src/app.rs:12094 src/ui/collection.rs:851
 msgid "Loading…"
 msgstr "Завантаження…"
 
@@ -518,17 +518,17 @@ msgctxt "artist"
 msgid "Unfollow"
 msgstr "Відписатися"
 
-#: src/ui/widgets.rs:1215 src/ui/artist.rs:406
+#: src/ui/widgets.rs:1215 src/ui/artist.rs:408
 msgctxt "artist"
 msgid "Follow"
 msgstr "Підписатися"
 
-#: src/ui/widgets.rs:1216 src/ui/collection.rs:2055 src/ui/collection.rs:2077
+#: src/ui/widgets.rs:1216 src/ui/collection.rs:2059 src/ui/collection.rs:2081
 #: src/ui/show.rs:241
 msgid "Remove from Your Library"
 msgstr "Видалити з бібліотеки"
 
-#: src/ui/widgets.rs:1217 src/ui/collection.rs:2054
+#: src/ui/widgets.rs:1217 src/ui/collection.rs:2058
 msgid "Add to Your Library"
 msgstr "Додати до бібліотеки"
 
@@ -558,7 +558,7 @@ msgstr "Перейти до радіо виконавця"
 msgid "Play {title}, {subtitle}"
 msgstr "Відтворити {title}, {subtitle}"
 
-#: src/ui/widgets.rs:1979 src/ui/artist.rs:420 src/ui/collection.rs:392
+#: src/ui/widgets.rs:1979 src/ui/artist.rs:422 src/ui/collection.rs:392
 #: src/ui/show.rs:259 src/ui/show.rs:467
 msgid "More"
 msgstr "Більше"
@@ -610,53 +610,53 @@ msgstr "ДАТА ДОДАВАННЯ"
 msgid "Sort by duration"
 msgstr "Сортувати за тривалістю"
 
-#: src/ui/widgets.rs:2713 src/app.rs:12265 src/app.rs:12279
+#: src/ui/widgets.rs:2802 src/app.rs:12265 src/app.rs:12279
 msgid "Network connection error. Check your connection."
 msgstr "Помилка мережевого підключення. Перевірте з’єднання."
 
-#: src/ui/widgets.rs:2971
+#: src/ui/widgets.rs:3060
 msgid "Cut"
 msgstr "Вирізати"
 
-#: src/ui/widgets.rs:2976
+#: src/ui/widgets.rs:3065
 msgid "Copy"
 msgstr "Копіювати"
 
-#: src/ui/widgets.rs:2981
+#: src/ui/widgets.rs:3070
 msgid "Paste"
 msgstr "Вставити"
 
-#: src/ui/widgets.rs:2998
+#: src/ui/widgets.rs:3087
 msgid "Select all"
 msgstr "Виділити все"
 
-#: src/ui/widgets.rs:3105
+#: src/ui/widgets.rs:3194
 msgid "Clear"
 msgstr "Очистити"
 
 #. Translators: {name} is replaced by the author's name, shown as a link.
-#: src/ui/widgets.rs:3150
+#: src/ui/widgets.rs:3239
 #, rust-format
 msgid "Built with love by {name}"
 msgstr "Створено з любов’ю: {name}"
 
-#: src/ui/widgets.rs:3295
+#: src/ui/widgets.rs:3384
 msgid "Host"
 msgstr "Хост"
 
-#: src/ui/widgets.rs:3312
+#: src/ui/widgets.rs:3401
 msgid "Port"
 msgstr "Порт"
 
-#: src/ui/widgets.rs:3330
+#: src/ui/widgets.rs:3419
 msgid "Username"
 msgstr "Ім’я користувача"
 
-#: src/ui/widgets.rs:3341
+#: src/ui/widgets.rs:3430
 msgid "Password"
 msgstr "Пароль"
 
-#: src/ui/widgets.rs:3359
+#: src/ui/widgets.rs:3448
 msgid ""
 "Proxy login applies to Web requests. Local playback uses this proxy only "
 "without a login."
@@ -664,7 +664,7 @@ msgstr ""
 "Облікові дані проксі застосовуються до вебзапитів. Локальне відтворення "
 "використовує цей проксі, лише якщо облікові дані не вказано."
 
-#: src/ui/widgets.rs:3363
+#: src/ui/widgets.rs:3452
 msgid ""
 "Spotify hostnames are resolved by the proxy. Local playback connects "
 "directly."
@@ -2117,12 +2117,12 @@ msgstr "Дискографія"
 msgid "Nothing in this category."
 msgstr "У цій категорії нічого немає."
 
-#: src/ui/artist.rs:217
+#: src/ui/artist.rs:219
 msgid "Fans also like"
 msgstr "Шанувальникам також подобається"
 
 #. Translators: {count} is the number of people who follow an artist.
-#: src/ui/artist.rs:327
+#: src/ui/artist.rs:329
 #, rust-format
 msgid "{count} follower"
 msgid_plural "{count} followers"
@@ -2130,12 +2130,12 @@ msgstr[0] "{count} підписник"
 msgstr[1] "{count} підписники"
 msgstr[2] "{count} підписників"
 
-#: src/ui/artist.rs:381 src/ui/collection.rs:275 src/ui/show.rs:218
+#: src/ui/artist.rs:383 src/ui/collection.rs:275 src/ui/show.rs:218
 #: src/ui/show.rs:376
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: src/ui/artist.rs:404
+#: src/ui/artist.rs:406
 msgctxt "artist"
 msgid "Following"
 msgstr "Ви підписані"
@@ -2176,36 +2176,36 @@ msgstr "Недоступно"
 msgid "You're offline. Reconnect to load more songs."
 msgstr "Ви не в мережі. Підключіться, щоб завантажити більше треків."
 
-#: src/ui/collection.rs:1000
+#: src/ui/collection.rs:1004
 msgid "Nothing here yet"
 msgstr "Тут поки нічого немає"
 
-#: src/ui/collection.rs:1001
+#: src/ui/collection.rs:1005
 msgid "Added songs appear here."
 msgstr "Тут з’являться додані пісні."
 
-#: src/ui/collection.rs:1500 src/ui/home.rs:825
+#: src/ui/collection.rs:1504 src/ui/home.rs:825
 msgid "Your top songs"
 msgstr "Ваші топ-пісні"
 
-#: src/ui/collection.rs:1509
+#: src/ui/collection.rs:1513
 msgid "Your most-played tracks from the last four weeks."
 msgstr "Треки, які ви слухали найчастіше за останні чотири тижні."
 
-#: src/ui/collection.rs:2002
+#: src/ui/collection.rs:2006
 msgid "Collaborative Playlist"
 msgstr "Спільний плейліст"
 
-#: src/ui/collection.rs:2004
+#: src/ui/collection.rs:2008
 msgid "Public Playlist"
 msgstr "Публічний плейліст"
 
-#: src/ui/collection.rs:2076
+#: src/ui/collection.rs:2080
 msgid "Save to Your Library"
 msgstr "Зберегти в бібліотеці"
 
 #. Translators: {count} is the number of people who saved a playlist.
-#: src/ui/collection.rs:2321
+#: src/ui/collection.rs:2325
 #, rust-format
 msgid "{count} save"
 msgid_plural "{count} saves"
@@ -2215,7 +2215,7 @@ msgstr[2] "{count} збережень"
 
 #. Translators: {count} is a number of songs and {duration} their total
 #. length, such as "2 hr 13 min".
-#: src/ui/collection.rs:2334
+#: src/ui/collection.rs:2338
 #, rust-format
 msgid "{count} song, {duration}"
 msgid_plural "{count} songs, {duration}"
@@ -2224,19 +2224,19 @@ msgstr[1] "{count} пісні, {duration}"
 msgstr[2] "{count} пісень, {duration}"
 
 #. Translators: {name} is the name of someone who added songs to the playlist.
-#: src/ui/collection.rs:2404
+#: src/ui/collection.rs:2408
 #, rust-format
 msgid "with {name}"
 msgstr "з {name}"
 
 #. Translators: {first} and {second} are names of people who added songs.
-#: src/ui/collection.rs:2408
+#: src/ui/collection.rs:2412
 #, rust-format
 msgid "with {first} and {second}"
 msgstr "з {first} і {second}"
 
 #. Translators: {count} is how many other people added songs to the playlist.
-#: src/ui/collection.rs:2415
+#: src/ui/collection.rs:2419
 #, rust-format
 msgid "and {count} other"
 msgid_plural "and {count} others"
