@@ -2322,6 +2322,9 @@ impl App {
                 {
                     self.load_made_for_you(false);
                 }
+                if became_ready {
+                    self.reread_playlists_over_session();
+                }
                 self.replay_queued_play();
             }
             LocalPlayback::Unavailable => {
@@ -2352,14 +2355,29 @@ impl App {
         self.local_playback = status;
     }
 
+    /// Whether the playlist list still waits for an answer, or failed to
+    /// get one and is to be asked again.
+    fn playlists_unsettled(&self) -> bool {
+        self.library.playlists.needs_load()
+            || self.library.playlists_retry_at.is_some()
+            || self.library.playlists_loading_since.is_some()
+    }
+
+    /// Local playback's session reads the whole library without the shared
+    /// app's quota. When it comes up while the list still waits on the Web
+    /// API, perhaps behind a rate limit, or failed there, the list is read
+    /// again through it (#698, #816).
+    fn reread_playlists_over_session(&mut self) {
+        if self.is_connected() && self.playlists_unsettled() {
+            self.load_playlists();
+        }
+    }
+
     fn on_network_restored(&mut self) {
         if !self.is_connected() {
             return;
         }
-        if self.library.playlists.needs_load()
-            || self.library.playlists_retry_at.is_some()
-            || self.library.playlists_loading_since.is_some()
-        {
+        if self.playlists_unsettled() {
             self.load_playlists();
         }
         let page = self.page().clone();
@@ -5780,6 +5798,12 @@ impl App {
             } => {
                 for playlist in &mut page.items {
                     self.reconcile_playlist_cover(&playlist.id, &mut playlist.images);
+                    // A list read over the playback session names no
+                    // owners it could not look up and has no mosaic covers;
+                    // the list it replaces keeps showing what it had.
+                    if let Some(listed) = self.library_entry(&playlist.id) {
+                        playlist.fill_from(listed);
+                    }
                 }
             }
             _ => {}
@@ -13550,6 +13574,63 @@ mod tests {
         assert_ne!(app.library.playlists_generation, offline);
         assert!(app.library.playlists_loading_since.is_some());
         assert_eq!(listed_playlists(&app), playlist_ids(&["x"]));
+    }
+
+    /// The playlist list waiting on a rate-limited shared app is read again
+    /// once local playback's session is up, which lists it without that
+    /// app (#698, #816). The shared app's late answer is not shown over the
+    /// session's; a list already whole is not read again.
+    #[test]
+    fn local_playback_coming_up_rereads_a_waiting_playlist_list() {
+        let ready = || LocalPlayback::Ready {
+            device_id: "here".into(),
+        };
+        let mut app = listener_app();
+        app.local_ready = false;
+        app.auth = AuthStatus::Connected {
+            username: "alice".into(),
+        };
+        let mut cached = cached_playlists(&["a"]).unwrap();
+        cached[0].owner.display_name = Some("Bob".into());
+        cached[0].images = vec![crate::api::models::Image {
+            url: "https://mosaic.scdn.co/300/a".into(),
+            ..Default::default()
+        }];
+        app.receive_account_caches("alice", 7, Some(cached.clone()), None);
+        app.load_playlists();
+        let waiting = app.library.playlists_generation;
+
+        app.handle_playback(ready());
+        let reread = app.library.playlists_generation;
+        assert_ne!(reread, waiting, "the list is asked for again");
+        assert_eq!(listed_playlists(&app), playlist_ids(&["a"]));
+
+        app.handle_api(ApiResponse::MyPlaylists {
+            offset: 0,
+            generation: reread,
+            result: Ok(crate::api::models::Page::whole(
+                playlist_page(&["a", "b", "c"], 0, 3).items,
+            )),
+        });
+        assert_eq!(listed_playlists(&app), playlist_ids(&["a", "b", "c"]));
+        assert_eq!(app.library.playlists_loading_since, None);
+        // The session's row keeps the owner's name and mosaic shown before.
+        let shown = app.library_entry("a").unwrap();
+        assert_eq!(shown.owner_name(), "Bob");
+        assert_eq!(shown.images, cached[0].images);
+        app.handle_api(ApiResponse::MyPlaylists {
+            offset: 0,
+            generation: waiting,
+            result: Ok(playlist_page(&["a"], 0, 1)),
+        });
+        assert_eq!(listed_playlists(&app), playlist_ids(&["a", "b", "c"]));
+
+        app.handle_playback(LocalPlayback::Unavailable);
+        app.handle_playback(ready());
+        assert_eq!(
+            app.library.playlists_generation, reread,
+            "a whole list is not read again"
+        );
     }
 
     /// A deletion Spotify refused is forgotten: the next list shows the

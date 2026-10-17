@@ -4474,7 +4474,7 @@ async fn handle(
     // A session whose long-lived connection has dropped still answers over
     // its HTTP client, so the engine's presence is the only liveness test;
     // a read the session truly cannot make falls back to the Web API below.
-    if api.session_serves(operation)
+    if (api.session_serves(operation) || library_over_session(api, operation).await)
         && let Some(engine) = engine
             .filter(|engine| same_account(&engine.session().username(), api.account().as_ref()))
     {
@@ -5069,6 +5069,15 @@ fn same_account(username: &str, account: Option<&AccountId>) -> bool {
 /// the operating system, which is far longer than a page should spin.
 const SESSION_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Whether the playlist library is read from the playback session's
+/// rootlist: when the shared app, which lists it with every field, cannot
+/// answer now, because it is still verifying sign-in or waiting out a rate
+/// limit (#698, #816). A personal app lists only part of it, leaving out
+/// Spotify's own playlists, so it is no substitute.
+async fn library_over_session(api: &ApiGateway, operation: Operation) -> bool {
+    operation == Operation::PlaylistLibrary && !api.shared_available().await
+}
+
 /// Answers a playlist or popular-track read over the streaming session. `None` when the
 /// session could not, leaving the request to the Web API.
 async fn over_session(engine: &Engine, request: &ApiRequest) -> Option<ApiResponse> {
@@ -5087,6 +5096,9 @@ async fn over_session(engine: &Engine, request: &ApiRequest) -> Option<ApiRespon
             SessionRead::ArtistTop { id } => SessionAnswer::ArtistTop(settle(
                 session_reads::artist_top_tracks(session, id).await,
             )?),
+            SessionRead::Library => {
+                SessionAnswer::Library(settle(session_reads::library(session).await)?)
+            }
         })
     };
     let Ok(answer) = tokio::time::timeout(SESSION_READ_TIMEOUT, read).await else {
@@ -5102,10 +5114,22 @@ async fn over_session(engine: &Engine, request: &ApiRequest) -> Option<ApiRespon
 /// where the session serves the operation.
 #[derive(Debug, PartialEq)]
 enum SessionRead<'a> {
-    ArtistTop { id: &'a str },
-    Header { id: &'a str },
-    Rows { id: &'a str, offset: u32 },
-    Sample { id: &'a str, offset: u32 },
+    ArtistTop {
+        id: &'a str,
+    },
+    Header {
+        id: &'a str,
+    },
+    Rows {
+        id: &'a str,
+        offset: u32,
+    },
+    Sample {
+        id: &'a str,
+        offset: u32,
+    },
+    /// The whole playlist library, whichever page was asked for.
+    Library,
 }
 
 fn session_read(request: &ApiRequest) -> Option<SessionRead<'_>> {
@@ -5120,15 +5144,18 @@ fn session_read(request: &ApiRequest) -> Option<SessionRead<'_>> {
             id,
             offset: *offset,
         },
+        ApiRequest::MyPlaylists { .. } => SessionRead::Library,
         _ => return None,
     })
 }
 
-/// What the session read: a playlist's header, or a page of its rows.
+/// What the session read: a playlist's header, a page of its rows, or the
+/// whole playlist library.
 enum SessionAnswer {
     ArtistTop(ApiResult<Vec<Track>>),
     Header(Box<ApiResult<Playlist>>),
     Rows(ApiResult<Page<PlaylistItem>>),
+    Library(ApiResult<Vec<Playlist>>),
 }
 
 /// The response a session answer becomes, carrying the request's own id,
@@ -5166,6 +5193,16 @@ fn session_response(request: &ApiRequest, answer: SessionAnswer) -> Option<ApiRe
                 id: id.clone(),
                 generation: *generation,
                 result,
+            }
+        }
+        // The session reads the library whole, so its answer starts the
+        // list over at the top, whichever page of a Web API load asked: it
+        // holds every row that load had shown, and the rest.
+        (ApiRequest::MyPlaylists { generation, .. }, SessionAnswer::Library(result)) => {
+            ApiResponse::MyPlaylists {
+                offset: 0,
+                generation: *generation,
+                result: result.map(Page::whole),
             }
         }
         _ => return None,
@@ -8054,6 +8091,34 @@ mod session_tests {
                 ..
             })
         ));
+    }
+
+    /// The session reads the library whole, so its answer to any page of a
+    /// load is the whole list from the top, with nothing after it (#698).
+    #[test]
+    fn the_session_answers_any_library_page_with_the_whole_list() {
+        let listed = |id: &str| Playlist {
+            id: id.into(),
+            ..Playlist::default()
+        };
+        for offset in [0, 50] {
+            let request = ApiRequest::MyPlaylists {
+                offset,
+                generation: 7,
+            };
+            assert_eq!(session_read(&request), Some(SessionRead::Library));
+            let answer = SessionAnswer::Library(Ok(vec![listed("a"), listed("b")]));
+            let Some(ApiResponse::MyPlaylists {
+                offset: 0,
+                generation: 7,
+                result: Ok(page),
+            }) = session_response(&request, answer)
+            else {
+                panic!("expected the whole library from the top");
+            };
+            assert_eq!(page.items.len(), 2);
+            assert_eq!((page.total, page.next_offset()), (2, None));
+        }
     }
 
     /// The session answers only for the account the Web API verified.

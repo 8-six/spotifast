@@ -257,9 +257,22 @@ instead of caching rows without songs. A song Spotify no longer has, or
 withholds for legal reasons, is an empty row, as the Web API shows it.
 
 The playlist list and fallback Made for you searches go through the shared app even
-when a personal app is set up. While the shared app waits out Spotify's
-limits, the sidebar and Home show what they last showed for the account,
-from the cache described in [Settings & Files](/settings-and-files/).
+when a personal app is set up, because a personal app's list leaves out
+Spotify's own playlists. While the shared app waits out Spotify's limits, the
+sidebar and Home show what they last showed for the account, from the cache
+described in [Settings & Files](/settings-and-files/).
+
+While local playback is signed in and the shared app is still
+verifying sign-in or waiting out a rate limit, the playlist list is read from
+the playback session's rootlist instead: every saved and followed playlist,
+Spotify's own among them, in one request per 500 playlists. The rootlist names
+each owner by ID only, so their display names are read from their profiles
+over the same session, four at a time, for at most five seconds; a name that
+does not arrive in time shows as the ID. A playlist without a cover of its
+own keeps the mosaic the earlier list showed for it. A list still waiting on
+the shared app when local playback connects is read again this way. If the
+session cannot read the list, the request waits for the shared app as
+before. None of these reads use Web API quota.
 
 Spotify can also explicitly refuse the key needed to decrypt a track. When
 that happens, Spotifast stops local playback and leaves the rest of the queue
