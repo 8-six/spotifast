@@ -36,7 +36,8 @@ You can rename it in Settings.
 - **Closing the window does not stop the music.** Spotifast keeps playing
   from the system tray; reopen it from the tray icon and quit from the tray
   menu or Ctrl+Q. On macOS you can also reopen it from the Dock. Settings can
-  turn this off. On Linux, including Flatpak, a desktop with a working system
+  turn this off, and on macOS can keep Spotifast out of the Dock, in the menu
+  bar only. On Linux, including Flatpak, a desktop with a working system
   tray is required for this behavior.
 - **Play and Pause fade.** With the default audio settings, music played on
   this computer fades in or out to avoid a hard cut.

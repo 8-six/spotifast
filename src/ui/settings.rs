@@ -618,6 +618,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let apply_playback = gettext(locale, "Apply and restart playback");
     let apply_playback_note = gettext(locale, "Restart local playback to apply these settings.");
     let download_updates = gettext(locale, "Download updates automatically");
+    let show_in_dock = gettext(locale, "Show in Dock");
     let playback_rows = [
         RowText::new(
             // Translators: {status} is a playback state such as Ready or Not set up.
@@ -700,6 +701,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         )
         .when(cfg!(target_os = "macos")),
         RowText::new(gettext(locale, "Local files"), local_files_detail(app)),
+        RowText::new(
+            show_in_dock.clone(),
+            gettext(
+                locale,
+                "When off, Spotifast lives in the menu bar and leaves Cmd+Tab. Open it from its menu-bar icon.",
+            ),
+        )
+        .when(cfg!(target_os = "macos")),
     ];
     if section_matches(&needle, &playback, &playback_rows) {
         any_visible = true;
@@ -830,6 +839,20 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     &palette,
                     &keep_playing,
                     &mut app.settings.keep_playing_in_background,
+                )
+                .changed()
+                {
+                    changed = true;
+                }
+            });
+            // Applied by the app's next pass (App::sync_dock_icon).
+            #[cfg(target_os = "macos")]
+            filtered_row(ui, &palette, &needle, &playback, &playback_rows[16], |ui| {
+                if widgets::switch(
+                    ui,
+                    &palette,
+                    &show_in_dock,
+                    &mut app.settings.mac_show_in_dock,
                 )
                 .changed()
                 {

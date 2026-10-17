@@ -335,6 +335,11 @@ pub struct App {
     pub screen_hz: u32,
     /// Whether the desktop asks for less motion.
     pub motion: crate::motion::Motion,
+    /// macOS: whether the Dock shows Spotifast as this window last made it,
+    /// or `None` until the window applies it (winit puts an unbundled run
+    /// back in the Dock as it launches).
+    #[cfg(target_os = "macos")]
+    dock_icon_shown: Option<bool>,
     pub window_hidden: bool,
     /// The window should close but the process should stay in the tray.
     pub hide_intent: bool,
@@ -804,6 +809,14 @@ fn play_pause_label(playing: bool) -> &'static str {
     if playing { "Pause" } else { "Play" }
 }
 
+/// macOS: whether the Dock shows Spotifast. Settings can take it out, but
+/// only while the menu-bar item exists, which is then the way back to a
+/// closed window (#837). There is no setting to hide that item, so in
+/// practice only a capture run, which has no item, keeps the icon anyway.
+pub fn shows_in_dock(setting: bool, menu_bar_item: bool) -> bool {
+    setting || !menu_bar_item
+}
+
 /// The tray item: Spotifast's icon, and a menu that shows or hides the
 /// window, controls playback and quits.
 fn tray_config() -> fastframe_tray::Config {
@@ -956,6 +969,8 @@ impl App {
             budget: crate::power::Budget::default(),
             screen_hz: 0,
             motion: crate::motion::Motion::default(),
+            #[cfg(target_os = "macos")]
+            dock_icon_shown: None,
             window_hidden: false,
             hide_intent: false,
             wants_show: false,
@@ -1226,6 +1241,13 @@ impl App {
         // A new window starts titled "Spotifast"; name the playing song
         // again rather than trust what the replaced window was told.
         self.window_title.clear();
+        // An unbundled run is put back in the Dock as AppKit finishes
+        // launching, after main hid it; the window's first pass hides it
+        // again.
+        #[cfg(target_os = "macos")]
+        {
+            self.dock_icon_shown = None;
+        }
         if let Some(tray) = &mut self.tray {
             tray.attach();
         }
@@ -11833,6 +11855,8 @@ impl App {
         self.remember_geometry(ctx);
         #[cfg(target_os = "macos")]
         self.sync_notch_widget(ctx);
+        #[cfg(target_os = "macos")]
+        self.sync_dock_icon(ctx);
         let close_requested = ctx.input(|input| input.viewport().close_requested());
         self.note_close_request(close_requested, self.hides_to_tray());
         self.schedule_next_pass(ctx);
@@ -12049,6 +12073,23 @@ impl App {
             .record(crate::history::played_track(&now), jiff::Timestamp::now());
         self.plays.save(&self.files, &self.dirs.history_file());
         self.rebuild_recents();
+    }
+
+    /// Puts Spotifast in the Dock or takes it out, as Settings asks, on a
+    /// window's first pass and whenever the setting changes (#837).
+    #[cfg(target_os = "macos")]
+    fn sync_dock_icon(&mut self, ctx: &egui::Context) {
+        let shown = shows_in_dock(self.settings.mac_show_in_dock, self.tray.is_some());
+        let applied = self.dock_icon_shown.replace(shown);
+        if applied == Some(shown) {
+            return;
+        }
+        // fastframe activates the app again after the switch; asking for
+        // the focus too keeps this window the key one when the setting was
+        // changed in it.
+        if fastframe_dock::set_dock_icon_visible(shown) && applied.is_some() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -22032,6 +22073,16 @@ mod tests {
         );
         app.local_ready = true;
         app
+    }
+
+    /// Settings takes Spotifast out of the Dock only while its menu-bar
+    /// item is there to bring a closed window back (#837).
+    #[test]
+    fn the_dock_icon_goes_only_while_the_menu_bar_item_stays() {
+        assert!(super::shows_in_dock(true, true));
+        assert!(!super::shows_in_dock(false, true));
+        assert!(super::shows_in_dock(false, false), "no way back without it");
+        assert!(super::shows_in_dock(true, false));
     }
 
     /// Dock menu picks wait in their own queue, which the application reads

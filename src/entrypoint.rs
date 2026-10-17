@@ -516,6 +516,13 @@ pub(crate) fn run() -> eframe::Result<()> {
     }
     #[cfg(windows)]
     let desktop_surfaces = options.media_controls;
+    // Out of the Dock before AppKit finishes launching, so a packaged app
+    // that Settings keeps out of it starts in the menu bar only (#837).
+    // Each window applies the setting again.
+    #[cfg(target_os = "macos")]
+    if !app::shows_in_dock(settings.mac_show_in_dock, options.tray) {
+        fastframe_dock::set_dock_icon_visible(false);
+    }
     #[allow(unused_mut)]
     let mut app = app::App::new(&waker, dirs, settings, options);
     if guarded {

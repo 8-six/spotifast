@@ -514,6 +514,22 @@ while music plays), **Next**, and **Previous**, above the standard Dock items.
 They control the same playing device as the player bar and keep working while
 the window is closed to the menu bar.
 
+### Menu bar only
+
+Turn off **Show in Dock** under **Settings > Playback on this computer** to
+run Spotifast from the menu bar alone. The Dock icon goes at once, without a
+restart, and the window stays open in front. Spotifast then also leaves the
+Cmd+Tab switcher and shows no menu bar of its own while you use it, as other
+menu-bar apps do. Its keyboard shortcuts, including Cmd+Q, Cmd+comma and
+copy and paste, keep working in the window.
+
+The menu-bar icon stays: it is how you show the window again after closing
+it, and how you quit while the window is closed. Opening Spotifast again from
+Finder or Launchpad also brings the window back. Turn the setting on to put
+Spotifast back in the Dock. The choice survives restarts, and Spotifast
+starts without the Dock icon; the Dock may show it for a moment as the app
+launches. This option is only on macOS.
+
 ## Keeping the mini player above other windows
 
 **Always on top** works on Windows, macOS and X11. On Wayland the app's

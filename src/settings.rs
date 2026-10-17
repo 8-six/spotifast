@@ -317,6 +317,9 @@ pub struct Settings {
     pub keep_playing_in_background: bool,
     /// Show the interactive Now Playing widget when hovering over the MacBook notch.
     pub mac_notch_widget: bool,
+    /// macOS: keep Spotifast in the Dock and Cmd-Tab. Off makes it a
+    /// menu-bar app, whose menu-bar icon is the way back (#837).
+    pub mac_show_in_dock: bool,
     /// Ask GitHub once a day whether a newer release exists.
     pub check_for_updates: bool,
     pub download_updates_automatically: bool,
@@ -477,6 +480,7 @@ impl Default for Settings {
             playback_authorized: false,
             keep_playing_in_background: true,
             mac_notch_widget: false,
+            mac_show_in_dock: true,
             check_for_updates: true,
             download_updates_automatically: false,
             pinned_contexts: Vec::new(),
@@ -1048,6 +1052,18 @@ mod tests {
         let text = serde_json::to_string(&settings).unwrap();
         let restored: Settings = serde_json::from_str(&text).unwrap();
         assert_eq!(restored.queue_width, 300.0);
+    }
+
+    /// Older files keep the Dock icon; hiding it survives a save (#837).
+    #[test]
+    fn the_dock_icon_stays_unless_hidden_and_round_trips() {
+        let empty: Settings = serde_json::from_str("{}").unwrap();
+        assert!(empty.mac_show_in_dock);
+        let hidden: Settings = serde_json::from_str(r#"{"mac_show_in_dock": false}"#).unwrap();
+        assert!(!hidden.mac_show_in_dock);
+        let encoded = serde_json::to_string(&hidden).unwrap();
+        let decoded: Settings = serde_json::from_str(&encoded).unwrap();
+        assert!(!decoded.mac_show_in_dock);
     }
 
     #[test]
