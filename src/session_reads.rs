@@ -199,6 +199,88 @@ pub async fn prerelease(
     Ok(page)
 }
 
+/// The collection set where Spotify's apps keep the songs hidden in a
+/// playlist ("Hide in this playlist"), one item per song and playlist.
+const HIDDEN_SONGS: &str = "playcontextbans";
+
+/// Every song the account hid in a playlist, as (playlist URI, song URI).
+pub async fn hidden_songs(session: &Session) -> anyhow::Result<Vec<(String, String)>> {
+    let mut hidden = Vec::new();
+    let mut token = String::new();
+    // Spotify pages the set; a page that repeats its token would loop.
+    for _ in 0..20 {
+        let page = session
+            .spclient()
+            .get_collection_page(HIDDEN_SONGS, &token, 500)
+            .await?;
+        hidden.extend(hidden_pairs(&page.items));
+        if page.next_page_token.is_empty() || page.next_page_token == token {
+            return Ok(hidden);
+        }
+        token = page.next_page_token;
+    }
+    anyhow::bail!("Spotify kept paging the hidden songs")
+}
+
+fn hidden_pairs(
+    items: &[librespot_protocol::collection2v2::CollectionItem],
+) -> impl Iterator<Item = (String, String)> + '_ {
+    items
+        .iter()
+        .filter(|item| !item.is_removed)
+        .filter_map(|item| {
+            let context = item.context_uri.as_deref()?;
+            (!context.is_empty() && !item.uri.is_empty())
+                .then(|| (context.to_owned(), item.uri.clone()))
+        })
+}
+
+/// Hides a song in a playlist, or shows it again, as Spotify's apps do: one
+/// item of the hidden-songs set, written only when the user asks.
+pub async fn set_hidden(
+    session: &Session,
+    playlist_uri: &str,
+    track_uri: &str,
+    hidden: bool,
+    now: i64,
+) -> anyhow::Result<()> {
+    session
+        .spclient()
+        .write_collection(
+            HIDDEN_SONGS,
+            vec![hidden_item(playlist_uri, track_uri, hidden, now)],
+        )
+        .await?;
+    Ok(())
+}
+
+fn hidden_item(
+    playlist_uri: &str,
+    track_uri: &str,
+    hidden: bool,
+    now: i64,
+) -> librespot_protocol::collection2v2::CollectionItem {
+    use librespot_protocol::collection2v2::{
+        CollectionItem, ItemData, ItemProvider, PlayContextBansItemData, item_data,
+    };
+    CollectionItem {
+        uri: track_uri.to_owned(),
+        added_at: if hidden { now } else { 0 },
+        is_removed: !hidden,
+        context_uri: Some(playlist_uri.to_owned()),
+        item_data: protobuf::MessageField::some(ItemData {
+            data: Some(item_data::Data::PlayContextBansItemData(
+                PlayContextBansItemData {
+                    item_provider: ItemProvider::PROVIDER_CONTEXT.into(),
+                    ..Default::default()
+                },
+            )),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
 fn collection_headers() -> reqwest::header::HeaderMap {
     let mut headers = reqwest::header::HeaderMap::new();
     let value =
@@ -2503,5 +2585,46 @@ mod tests {
         page.items.push(bare);
         assert!(matches!(library_rows(&[page]), Err(Failure::Retry(_))));
         assert!(matches!(library_rows(&[]), Ok(rows) if rows.is_empty()));
+    }
+
+    /// #779: a hidden song is the song and its playlist; one shown again
+    /// is the same item marked removed.
+    #[test]
+    fn hiding_writes_the_song_and_its_playlist() {
+        use librespot_protocol::collection2v2::{ItemProvider, item_data};
+        let hide = hidden_item(
+            "spotify:playlist:dw",
+            "spotify:track:t",
+            true,
+            1_792_000_000,
+        );
+        assert_eq!(hide.uri, "spotify:track:t");
+        assert_eq!(hide.context_uri.as_deref(), Some("spotify:playlist:dw"));
+        assert!(!hide.is_removed);
+        assert_eq!(hide.added_at, 1_792_000_000);
+        assert!(matches!(
+            &hide.item_data.data,
+            Some(item_data::Data::PlayContextBansItemData(data))
+                if data.item_provider.enum_value() == Ok(ItemProvider::PROVIDER_CONTEXT)
+        ));
+        let show = hidden_item("spotify:playlist:dw", "spotify:track:t", false, 1);
+        assert!(show.is_removed);
+
+        let removed = librespot_protocol::collection2v2::CollectionItem {
+            is_removed: true,
+            ..hide.clone()
+        };
+        let no_playlist = librespot_protocol::collection2v2::CollectionItem {
+            context_uri: None,
+            ..hide.clone()
+        };
+        let pairs: Vec<_> = hidden_pairs(&[hide, removed, no_playlist]).collect();
+        assert_eq!(
+            pairs,
+            [(
+                "spotify:playlist:dw".to_string(),
+                "spotify:track:t".to_string()
+            )]
+        );
     }
 }

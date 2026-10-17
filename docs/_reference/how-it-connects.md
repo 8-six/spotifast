@@ -343,6 +343,20 @@ the playback session they come from two batched metadata reads, one for the
 releases' track lists and one for the songs; without it, from the Web API's
 album tracks, one request per release.
 
+## Songs hidden in a playlist
+
+Spotify's own playlists, Discover Weekly and the other mixes made for you,
+offer **Hide in this playlist** in a song's menu, as Spotify's apps do. The
+hidden songs live in the account's `playcontextbans` collection set on
+Spotify's client API, which librespot reads and writes for Spotifast. When
+local playback connects, Spotifast reads that set once, 500 items to a
+page. Hiding or showing a song greys its row out or brings it back at once,
+and sends one write for that song and playlist; if Spotify turns it away,
+the row goes back and an error is shown. While a playlist has hidden songs,
+playing it plays the songs on screen without them, as a filtered playlist
+does, so Shuffle and Repeat follow the shown songs. Hiding needs local
+playback; without it the menu entry is not offered.
+
 ## Podcasts on Home
 
 Since 0.10.0, Home's **Your podcasts** shelf reads the first page of

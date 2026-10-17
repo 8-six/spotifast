@@ -174,6 +174,7 @@ pub fn radio(app: &mut App, ui: &mut egui::Ui, seed: &str) {
             can_load_more: false,
             filter: "",
             items_revision: generation,
+            plays_shown_rows: false,
         },
     );
 }
@@ -195,6 +196,7 @@ fn radio_actions<'a>(
         reload: Some((Page::Radio(seed.to_string()), !loaded)),
         name,
         save_radio: Some(seed.to_string()),
+        plays_shown_rows: false,
     }
 }
 

@@ -238,6 +238,9 @@ pub struct Actions<'a> {
     /// A radio page offers to save its songs as a playlist, by the seed's
     /// URI, in place of the Spotify item's own menu.
     pub save_radio: Option<String>,
+    /// Play the songs on screen even with Shuffle on: some of the context's
+    /// songs are hidden (#779).
+    pub plays_shown_rows: bool,
 }
 
 /// The big play button and its neighbours; returns the filter text if a
@@ -259,7 +262,10 @@ pub fn actions_row(
             // A radio is mixed afresh each time Spotify is asked, so it
             // always plays the songs on screen.
             let play_view = actions.view.is_some()
-                && (!app.playing_context_shuffle() || is_filtered || actions.save_radio.is_some());
+                && (!app.playing_context_shuffle()
+                    || is_filtered
+                    || actions.save_radio.is_some()
+                    || actions.plays_shown_rows);
             let can_start = actions.view.as_ref().is_none_or(|uris| !uris.is_empty());
             let icon = if now_playing_here {
                 Icon::PauseFilled
@@ -481,6 +487,9 @@ pub struct Table<'a> {
     pub can_load_more: bool,
     pub filter: &'a str,
     pub items_revision: u64,
+    /// Play the rows on screen rather than the Spotify context, even
+    /// unsorted: some of the context's songs are hidden here (#779).
+    pub plays_shown_rows: bool,
 }
 
 /// The server's row space, including unloaded and unavailable entries.
@@ -501,6 +510,7 @@ pub struct TableCache {
     pub user_names_revision: u64,
     pub visible: Arc<[usize]>,
     pub view_uris: Option<Arc<[String]>>,
+    pub plays_shown_rows: bool,
     /// Playback positions for visible rows; unavailable rows have no position.
     pub view_positions: Arc<[Option<usize>]>,
 }
@@ -578,20 +588,33 @@ pub fn cached_table_items(
     )
 }
 
+/// How a table shows its rows: filtered, sorted, and whether playback
+/// follows the rows on screen even when neither applies.
+pub struct ViewOptions<'a> {
+    pub needle: &'a str,
+    pub sort: Option<TableSort>,
+    pub plays_shown_rows: bool,
+}
+
 pub fn prepare_table_view(
     ui: &mut egui::Ui,
     app: &App,
     page: &Page,
     items: &[TableItem],
-    needle: &str,
-    sort: Option<TableSort>,
+    view: ViewOptions<'_>,
     items_revision: u64,
 ) -> Arc<TableCache> {
+    let ViewOptions {
+        needle,
+        sort,
+        plays_shown_rows,
+    } = view;
     let cache_id = egui::Id::new("table-view-cache").with(page);
     let cached = ui.data(|d| d.get_temp::<Arc<TableCache>>(cache_id));
 
     let is_valid = cached.as_ref().is_some_and(|c| {
         c.sort == sort
+            && c.plays_shown_rows == plays_shown_rows
             && c.needle == needle
             && c.items_revision == items_revision
             && c.user_names_revision == app.user_names_revision
@@ -602,7 +625,7 @@ pub fn prepare_table_view(
     } else {
         let visible = view_indices(items, needle, sort);
         let mut view_positions = Vec::new();
-        let view_uris = (sort.is_some() || !needle.is_empty()).then(|| {
+        let view_uris = (sort.is_some() || !needle.is_empty() || plays_shown_rows).then(|| {
             let mut uris = Vec::new();
             for &index in &visible {
                 let item = &items[index].0;
@@ -621,6 +644,7 @@ pub fn prepare_table_view(
             user_names_revision: app.user_names_revision,
             visible: visible.into(),
             view_uris,
+            plays_shown_rows,
             view_positions: view_positions.into(),
         });
         ui.data_mut(|d| d.insert_temp(cache_id, Arc::clone(&entry)));
@@ -682,8 +706,11 @@ fn table_contents(app: &mut App, ui: &mut egui::Ui, table: Table<'_>) {
         app,
         &table.page,
         table.items,
-        &needle,
-        sort,
+        ViewOptions {
+            needle: &needle,
+            sort,
+            plays_shown_rows: table.plays_shown_rows,
+        },
         table.items_revision,
     );
     let thin = app.settings.tracklist_compact;
@@ -1416,6 +1443,46 @@ fn playlist_rows(
     (rows, positions, duration_ms)
 }
 
+/// A playlist's rows with the songs hidden in it marked unplayable, kept
+/// until the rows or the hidden songs change.
+fn hidden_rows(
+    ui: &egui::Ui,
+    app: &App,
+    id: &str,
+    playlist_uri: &str,
+    items: &Arc<Vec<TableItem>>,
+) -> Arc<Vec<TableItem>> {
+    type Marked = (usize, u64, Arc<Vec<TableItem>>);
+    let key = egui::Id::new("hidden-rows").with(id);
+    let source = Arc::as_ptr(items) as usize;
+    let revision = app.hidden_songs_revision;
+    if let Some((cached_source, cached_revision, rows)) = ui.data(|d| d.get_temp::<Marked>(key))
+        && cached_source == source
+        && cached_revision == revision
+    {
+        return rows;
+    }
+    let rows: Arc<Vec<TableItem>> = Arc::new(
+        items
+            .iter()
+            .map(|(item, added_at, added_by)| {
+                let item = match item {
+                    PlayableItem::Track(track) if app.hidden_in(playlist_uri, &track.uri) => {
+                        PlayableItem::Track(crate::api::models::Track {
+                            is_playable: Some(false),
+                            ..track.clone()
+                        })
+                    }
+                    other => other.clone(),
+                };
+                (item, added_at.clone(), added_by.clone())
+            })
+            .collect(),
+    );
+    ui.data_mut(|d| d.insert_temp::<Marked>(key, (source, revision, Arc::clone(&rows))));
+    rows
+}
+
 pub(crate) fn playlist_cached_table_items(
     app: &mut App,
     id: &str,
@@ -1570,6 +1637,7 @@ pub fn top_songs(app: &mut App, ui: &mut egui::Ui) {
             can_load_more: false,
             filter: "",
             items_revision: app.home.top_songs_generation,
+            plays_shown_rows: false,
         },
     );
 }
@@ -1595,6 +1663,18 @@ pub fn playlist(app: &mut App, ui: &mut egui::Ui, id: &str) {
                 playlist.owner.id.as_deref(),
                 playlist.owner_name(),
             );
+            // Songs hidden here are greyed out and left out of playback,
+            // which then plays the rows on screen (#779).
+            let hides = app
+                .hidden_songs
+                .get(&playlist.uri)
+                .is_some_and(|songs| !songs.is_empty());
+            let items = if hides {
+                hidden_rows(ui, app, id, &playlist.uri, &items)
+            } else {
+                items
+            };
+            let items_revision = page.items.revision.wrapping_add(app.hidden_songs_revision);
             if items.is_empty() && !app.network_reachable {
                 widgets::empty_state(
                     ui,
@@ -1660,9 +1740,12 @@ pub fn playlist(app: &mut App, ui: &mut egui::Ui, id: &str) {
                 app,
                 &Page::Playlist(id.to_string()),
                 &items,
-                &needle,
-                sort,
-                page.items.revision,
+                ViewOptions {
+                    needle: &needle,
+                    sort,
+                    plays_shown_rows: hides,
+                },
+                items_revision,
             );
             let view_play = table_view.view_uris.as_ref().map(Arc::clone);
             let reload_action = if app.network_reachable {
@@ -1670,8 +1753,9 @@ pub fn playlist(app: &mut App, ui: &mut egui::Ui, id: &str) {
             } else {
                 None
             };
-            let actions =
+            let mut actions =
                 playlist_actions(app.locale, playlist, owned, saved, view_play, reload_action);
+            actions.plays_shown_rows = hides;
             if !app.network_reachable {
                 disabled_actions_row(app, ui, actions, Some(&mut page.filter));
             } else {
@@ -1715,7 +1799,8 @@ pub fn playlist(app: &mut App, ui: &mut egui::Ui, id: &str) {
                     error: page.items.error.as_deref(),
                     can_load_more: page.items.can_load_more(),
                     filter: &page.filter,
-                    items_revision: page.items.revision,
+                    items_revision,
+                    plays_shown_rows: hides,
                 },
             );
         }
@@ -1839,8 +1924,11 @@ pub fn album(app: &mut App, ui: &mut egui::Ui, id: &str) {
                 app,
                 &Page::Album(id.to_string()),
                 &items,
-                "",
-                sort,
+                ViewOptions {
+                    needle: "",
+                    sort,
+                    plays_shown_rows: false,
+                },
                 page.tracks.revision,
             );
             let album_view = table_view.view_uris.as_ref().map(Arc::clone);
@@ -1880,6 +1968,7 @@ pub fn album(app: &mut App, ui: &mut egui::Ui, id: &str) {
                     can_load_more: page.tracks.can_load_more(),
                     filter: "",
                     items_revision: page.tracks.revision,
+                    plays_shown_rows: false,
                 },
             );
             ui.add_space(24.0);
@@ -2071,6 +2160,7 @@ fn playlist_actions<'a>(
         reload,
         name: &playlist.name,
         save_radio: None,
+        plays_shown_rows: false,
     }
 }
 
@@ -2093,6 +2183,7 @@ fn album_actions<'a>(
         reload: None,
         name: &album.name,
         save_radio: None,
+        plays_shown_rows: false,
     }
 }
 
@@ -2254,8 +2345,11 @@ pub fn liked(app: &mut App, ui: &mut egui::Ui) {
         app,
         &Page::LikedSongs,
         &items,
-        &needle,
-        sort,
+        ViewOptions {
+            needle: &needle,
+            sort,
+            plays_shown_rows: false,
+        },
         app.library.liked.revision,
     );
     let liked_view = table_view.view_uris.as_ref().map(Arc::clone);
@@ -2269,6 +2363,7 @@ pub fn liked(app: &mut App, ui: &mut egui::Ui) {
         reload: None,
         name: &liked_title,
         save_radio: None,
+        plays_shown_rows: false,
     };
     if !app.network_reachable {
         disabled_actions_row(app, ui, actions, Some(&mut filter));
@@ -2311,6 +2406,7 @@ pub fn liked(app: &mut App, ui: &mut egui::Ui) {
             can_load_more,
             filter: &filter,
             items_revision: app.library.liked.revision,
+            plays_shown_rows: false,
         },
     );
 }
@@ -2757,6 +2853,7 @@ mod tests {
                             can_load_more: true,
                             filter: "",
                             items_revision: 0,
+                            plays_shown_rows: false,
                         },
                     )
                 })
@@ -2845,6 +2942,7 @@ mod tests {
                     can_load_more: true,
                     filter: "unmatched",
                     items_revision: 0,
+                    plays_shown_rows: false,
                 },
             )
         });
@@ -3152,6 +3250,7 @@ mod tests {
             user_names_revision: 2,
             visible: Arc::new([2]),
             view_uris: Some(Arc::new(["spotify:track:t_2".to_string()])),
+            plays_shown_rows: false,
             view_positions: Arc::new([Some(0)]),
         };
 
@@ -3322,6 +3421,7 @@ mod tests {
                                 can_load_more: false,
                                 filter: &self.filter,
                                 items_revision: self.items_revision,
+                                plays_shown_rows: false,
                             },
                         );
                     });
@@ -3948,6 +4048,7 @@ mod tests {
                             reload: Some((Page::Radio("spotify:track:seed".into()), false)),
                             name: "Seed Radio",
                             save_radio: Some("spotify:track:seed".into()),
+                            plays_shown_rows: false,
                         },
                         None,
                     )
@@ -4032,6 +4133,7 @@ mod tests {
                                     reload: Some((Page::Playlist("test".into()), loading)),
                                     name: "Test",
                                     save_radio: None,
+                                    plays_shown_rows: false,
                                 },
                                 Some(&mut filter),
                             )
@@ -4156,6 +4258,7 @@ mod tests {
                         reload: None,
                         name: "Test",
                         save_radio: None,
+                        plays_shown_rows: false,
                     },
                     None,
                 );
@@ -4219,6 +4322,7 @@ mod tests {
                             reload: None,
                             name: "Test",
                             save_radio: None,
+                            plays_shown_rows: false,
                         },
                         None,
                     );
@@ -4277,6 +4381,7 @@ mod tests {
                     reload: None,
                     name: "Test",
                     save_radio: None,
+                    plays_shown_rows: false,
                 },
                 None,
             );
@@ -4324,6 +4429,7 @@ mod tests {
                     reload: None,
                     name: "Test",
                     save_radio: None,
+                    plays_shown_rows: false,
                 },
                 None,
             );
@@ -4375,6 +4481,7 @@ mod tests {
                     reload: None,
                     name: "Test",
                     save_radio: None,
+                    plays_shown_rows: false,
                 },
                 None,
             );
@@ -4422,6 +4529,7 @@ mod tests {
                     reload: None,
                     name: "Test",
                     save_radio: None,
+                    plays_shown_rows: false,
                 },
                 None,
             );
@@ -4474,6 +4582,7 @@ mod tests {
                     reload: None,
                     name: "Test",
                     save_radio: None,
+                    plays_shown_rows: false,
                 },
                 Some(&mut filter),
             );
@@ -4521,6 +4630,7 @@ mod tests {
                     reload: None,
                     name: "Test",
                     save_radio: None,
+                    plays_shown_rows: false,
                 },
                 Some(&mut filter),
             );

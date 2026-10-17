@@ -390,6 +390,19 @@ pub fn populate(app: &mut App) {
         ),
     );
     app.playlist_pages.insert("pl0".into(), discover_page);
+    // Two songs hidden in Discover Weekly, greyed out and skipped.
+    app.hidden_songs.insert(
+        playlists[0].uri.clone(),
+        tracks
+            .iter()
+            .rev()
+            .skip(2)
+            .step_by(5)
+            .take(2)
+            .map(|track| track.uri.clone())
+            .collect(),
+    );
+    app.hidden_songs_revision += 1;
 
     // Album page.
     let mut album_page = AlbumPage {
@@ -9317,6 +9330,7 @@ mod tests {
                                     ""
                                 },
                                 items_revision: u64::from(empty),
+                                plays_shown_rows: false,
                             },
                         );
                     },

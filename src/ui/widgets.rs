@@ -1078,6 +1078,30 @@ fn item_menu_at(
             });
         }
     }
+    // Spotify's own mixes hide a song for this listener without removing
+    // it from anyone's copy (#779).
+    let hide_in = match context {
+        Some(RowContext::Context { uri, .. }) => Some(uri),
+        Some(RowContext::View { context_uri, .. }) => Some(context_uri),
+        _ => None,
+    }
+    .filter(|playlist| item.is_track() && app.can_hide_in(playlist))
+    .cloned();
+    if let Some(playlist_uri) = hide_in {
+        let hidden = app.hidden_in(&playlist_uri, &uri);
+        let (icon, text) = if hidden {
+            (Icon::Eye, gettext(locale, "Show in this playlist"))
+        } else {
+            (Icon::EyeOff, gettext(locale, "Hide in this playlist"))
+        };
+        if menu_item(ui, &palette, Some(icon), &text) {
+            app.actions.push(Action::SetHiddenInPlaylist {
+                playlist_uri,
+                track_uri: uri.clone(),
+                hidden: !hidden,
+            });
+        }
+    }
     menu_separator(ui, &palette);
     match item {
         PlayableItem::Track(track) => {

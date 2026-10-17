@@ -178,6 +178,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui) {
             can_load_more: false,
             filter: "",
             items_revision: generation,
+            plays_shown_rows: false,
         },
     );
 }
