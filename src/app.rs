@@ -559,6 +559,9 @@ pub struct App {
     intent_track: Option<TrackIntent>,
     /// Requested shuffle mode, applied to every context until changed.
     shuffle_wanted: bool,
+    /// The repeat mode saved by the last run, which the first local load
+    /// starts with: the engine starts at off.
+    repeat_wanted: RepeatMode,
     /// Last local shuffle change, used to ignore its echo from the engine.
     shuffle_set_at: Option<Instant>,
     /// When tracks recently came up unavailable, to spot a key-service
@@ -1045,6 +1048,7 @@ impl App {
             optimistic_playing: None,
             intent_track: None,
             shuffle_wanted: session.shuffle_on,
+            repeat_wanted: RepeatMode::from_api(&session.repeat),
             shuffle_set_at: None,
             unavailable_at: Vec::new(),
             last_unavailable_reconnect: None,
@@ -1736,7 +1740,7 @@ impl App {
             playing: false,
             loading: false,
             shuffle: self.shuffle_wanted,
-            repeat: RepeatMode::Off,
+            repeat: self.local_repeat(),
             volume_percent: volume_to_percent(self.local.volume),
             can_control: true,
             can_set_volume: true,
@@ -8053,7 +8057,7 @@ impl App {
             Target::Local => {
                 self.queued_play = None;
                 let mut load = local_load(&request, shuffle);
-                load.repeat = Some(self.local.repeat);
+                load.repeat = Some(self.local_repeat());
                 self.local_list = load.context_uri.is_none().then(|| load.uris.clone());
                 let shuffle_after = shuffle && load.shuffle.is_none() && !load.uris.is_empty();
                 self.backend.player(PlayerCommand::Load(load));
@@ -8637,10 +8641,22 @@ impl App {
         }
     }
 
+    /// The repeat mode local playback follows: the engine's once it has a
+    /// song, until then the one the last run saved.
+    fn local_repeat(&self) -> RepeatMode {
+        if self.local.track.is_some() {
+            self.local.repeat
+        } else {
+            self.repeat_wanted
+        }
+    }
+
     fn set_repeat(&mut self, mode: RepeatMode) {
         match self.target() {
             Target::Local => {
                 self.local.repeat = mode;
+                self.repeat_wanted = mode;
+                self.session_dirty = true;
                 self.backend.player(PlayerCommand::Repeat(mode));
             }
             Target::Remote(device_id) => {
@@ -11495,6 +11511,7 @@ impl App {
                     .map(|queue| queue.queue.iter().take(30).cloned().collect())
                     .unwrap_or_default(),
                 shuffle_on: self.shuffle_wanted,
+                repeat: self.local_repeat().api_name().into(),
                 sorts: self
                     .table_sorts
                     .iter()
@@ -14931,6 +14948,26 @@ mod tests {
             "the playlist it was left in is kept"
         );
         assert_eq!(request.offset_uri.as_deref(), Some("spotify:track:three"));
+    }
+
+    /// A restored repeat mode drives local playback until the engine has a
+    /// song of its own.
+    #[test]
+    fn repeat_survives_a_restart_until_the_engine_has_a_song() {
+        let mut app = headless_app();
+        app.repeat_wanted = RepeatMode::from_api(RepeatMode::Track.api_name());
+        assert_eq!(
+            app.local_repeat(),
+            RepeatMode::Track,
+            "the first load after a restart repeats the song"
+        );
+        app.local.track = Some(crate::player::LocalTrack::default());
+        app.local.repeat = RepeatMode::Off;
+        assert_eq!(
+            app.local_repeat(),
+            RepeatMode::Off,
+            "once playing, the engine's mode is the one saved"
+        );
     }
 
     /// A restored session keeps shuffle enabled when skipping.
