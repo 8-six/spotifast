@@ -662,6 +662,10 @@ impl RodioSink {
 
     /// Opens the output if it is not open, and has it ask for sound.
     fn open_if_needed(&mut self) -> Result<(), OpenError> {
+        // librespot's player thread decodes and queues every packet; ahead
+        // of ordinary work, a busy or swapping machine keeps it waiting less
+        // than the queue lasts (#88, #785). Once per thread, then free.
+        fastframe_audio::raise_feeder_priority();
         match &mut self.output {
             Some(output) => {
                 if output.run(&self.control)? {
@@ -702,7 +706,6 @@ impl Sink for RodioSink {
     /// where librespot expects it, so playback stops with a message and
     /// the app stays up as a Connect remote.
     fn start(&mut self) -> SinkResult<()> {
-        take_precedence();
         if let Err(error) = self.open_if_needed() {
             log::debug!("audio output not open at start: {error}");
             return Ok(());
@@ -837,25 +840,6 @@ impl Sink for RodioSink {
         Ok(())
     }
 }
-
-/// Raises the Windows decoder thread one step above normal to prevent queued
-/// audio from running out under load (#88).
-///
-/// Linux requires rtkit; CoreAudio owns its real-time callback on macOS.
-#[cfg(windows)]
-fn take_precedence() {
-    use windows_sys::Win32::System::Threading::{
-        GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_ABOVE_NORMAL,
-    };
-    // SAFETY: the current thread's pseudo-handle needs no closing, and the
-    // call takes nothing else.
-    unsafe {
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-    }
-}
-
-#[cfg(not(windows))]
-fn take_precedence() {}
 
 #[derive(Debug, thiserror::Error)]
 enum OpenError {
