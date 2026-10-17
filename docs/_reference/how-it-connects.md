@@ -184,7 +184,11 @@ out, or a reconnection that gives up stops it.
   Secret Service on Linux, Keychain on macOS, and Credential Manager on
   Windows, where a copy encrypted for the Windows account with the Data
   Protection API also stays in the data folder for when Credential Manager
-  refuses or loses a grant. Librespot retains its reusable credential in
+  refuses or loses a grant. Since 0.13.4, a portable Windows copy keeps
+  that data folder next to its executable, and the first time it makes
+  one from the installed copy's state it saves those grants again under
+  entries of its own, never moving or deleting the installed copy's
+  ([portable copies](/settings-and-files/#portable-copies)). Librespot retains its reusable credential in
   memory; Spotifast owns persistence. Flatpak can talk to
   `org.freedesktop.secrets` for this.
   Version 0.7.1 still uses the older unencrypted files.

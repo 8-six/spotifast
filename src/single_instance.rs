@@ -138,18 +138,24 @@ pub const NO_DEVICES: &str = "[]";
 /// runtime directory on Linux (the app's own inside Flatpak), the user's
 /// private temporary directory on macOS, where a socket path under
 /// Application Support can outgrow the 104 bytes macOS allows with a long
-/// user name, and beside Spotifast's state on Windows.
+/// user name, and beside Spotifast's per-user state on Windows.
+///
+/// A portable Windows copy keeps its settings in its own folder (#703), so
+/// it gets a slot of its own for that folder, kept in the user's profile
+/// rather than the portable folder, which may sit on a drive any user can
+/// read: it never hands a launch to the installed copy or to a portable
+/// copy elsewhere, and the `spotifast` command it runs reaches it.
 fn slot() -> fastframe_instance::Slot {
     #[cfg(not(windows))]
-    {
-        fastframe_instance::Slot::new(NAME)
-    }
+    let slot = fastframe_instance::Slot::new(NAME);
     #[cfg(windows)]
-    {
-        fastframe_instance::Slot::at(
-            crate::paths::AppDirs::discover().state.join("instance"),
-            NAME,
-        )
+    let slot = fastframe_instance::Slot::at(
+        crate::paths::AppDirs::installed().state.join("instance"),
+        NAME,
+    );
+    match crate::paths::AppDirs::instance_scope() {
+        Some(scope) => slot.scoped(&scope),
+        None => slot,
     }
 }
 

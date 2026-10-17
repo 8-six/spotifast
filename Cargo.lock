@@ -6022,6 +6022,7 @@ dependencies = [
  "egui_extras",
  "fastframe-audio",
  "fastframe-autostart",
+ "fastframe-dirs",
  "fastframe-dock",
  "fastframe-emoji",
  "fastframe-file",

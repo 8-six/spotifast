@@ -527,6 +527,49 @@ impl Sealer for Dpapi {
     }
 }
 
+/// The profile a state folder's grants are saved under, when it records one.
+const PROFILE_FILE: &str = "credential-profile";
+/// The profile a portable folder takes its first grants from (#703).
+const ADOPT_FILE: &str = "credential-profile-source";
+
+/// A profile a state folder recorded in `file`. Folders moved by the rename,
+/// and portable folders, record one; any other folder's profile is
+/// [`profile_of`] its path.
+fn recorded_profile(state: &Path, file: &str) -> Option<String> {
+    std::fs::read_to_string(state.join(file))
+        .ok()
+        .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
+}
+
+/// The profile of a state folder that recorded none: a digest of its path.
+fn profile_of(state: &Path) -> String {
+    format!("{:x}", Sha256::digest(state.to_string_lossy().as_bytes()))
+}
+
+/// Makes `state` record its profile, unless it records one already, so its
+/// grants stay reachable when the folder moves to another path: a portable
+/// folder on a drive that changes letter, say. Runs before the window opens.
+pub fn keep_profile(state: &Path) -> std::io::Result<()> {
+    if recorded_profile(state, PROFILE_FILE).is_some() {
+        return Ok(());
+    }
+    fastframe_file::write(&state.join(PROFILE_FILE), profile_of(state))
+}
+
+/// Gives `copy`, a portable folder's state copied from `source`, a profile
+/// of its own, and records `source`'s, whose grants the store saves under
+/// the new profile when it first opens. The copy then starts signed in, and
+/// the two keep separate entries in the platform store: signing out of one
+/// leaves the other signed in.
+pub fn adopt_profile(copy: &Path, source: &Path) -> std::io::Result<()> {
+    let from = recorded_profile(source, PROFILE_FILE).unwrap_or_else(|| profile_of(source));
+    let own: String = (0..4)
+        .map(|_| format!("{:016x}", rand::random::<u64>()))
+        .collect();
+    fastframe_file::write(&copy.join(ADOPT_FILE), from)?;
+    fastframe_file::write(&copy.join(PROFILE_FILE), own)
+}
+
 type Job = Box<dyn FnOnce(&mut dyn ProtectedStore) + Send>;
 
 struct Inner {
@@ -593,16 +636,10 @@ impl Store {
                     job(backend.as_mut());
                 }
             });
-        let profile = std::fs::read_to_string(dirs.state.join("credential-profile"))
-            .ok()
-            .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
-            .unwrap_or_else(|| {
-                format!(
-                    "{:x}",
-                    Sha256::digest(dirs.state.to_string_lossy().as_bytes())
-                )
-            });
-        Self {
+        let profile =
+            recorded_profile(&dirs.state, PROFILE_FILE).unwrap_or_else(|| profile_of(&dirs.state));
+        let source = recorded_profile(&dirs.state, ADOPT_FILE).filter(|source| *source != profile);
+        let store = Self {
             inner: Arc::new(Inner {
                 dirs,
                 profile,
@@ -610,6 +647,65 @@ impl Store {
                 markers: Mutex::new(()),
                 jobs,
             }),
+        };
+        // First in the queue, so every load sees the adopted grants.
+        if let Some(source) = source {
+            let adopting = store.clone();
+            let _ = store.inner.jobs.try_send(Box::new(move |backend| {
+                adopting.adopt(&source, backend);
+            }));
+        }
+        store
+    }
+
+    /// Saves the grants of the profile a portable folder was copied from
+    /// under its own profile, once (see [`adopt_profile`]). A grant this
+    /// folder already has, or revoked, stays as it is. Tried again at the
+    /// next start if any grant could not be read or saved.
+    fn adopt(&self, source: &str, backend: &mut dyn ProtectedStore) {
+        let mut done = true;
+        for slot in Slot::ALL {
+            let own = format!("{}:{}", self.inner.profile, slot.name());
+            let from = format!("{source}:{}", slot.name());
+            let adopted = (|| {
+                if self.marker(slot)?.is_some_and(|marker| marker.revoked)
+                    || backend.read(&own)?.is_some()
+                {
+                    return Ok(());
+                }
+                let Some(bytes) = backend.read(&from)? else {
+                    return Ok(());
+                };
+                backend.write(&own, &bytes)?;
+                if backend.read(&own)?.as_deref() != Some(bytes.as_slice()) {
+                    return Err(Error::Verification);
+                }
+                Ok(())
+            })();
+            match adopted {
+                // The copied sealed copy of the source's grant has done its
+                // job; the source's own entries stay with the source.
+                Ok(()) => {
+                    let _ = remove_file(
+                        &self
+                            .inner
+                            .dirs
+                            .state
+                            .join("credential-storage")
+                            .join(format!("{source}.{}.sealed", slot.name())),
+                    );
+                }
+                Err(error) => {
+                    log::warn!(
+                        "could not take over the {} grant of the folder this one was copied from: {error:?}",
+                        slot.name()
+                    );
+                    done = false;
+                }
+            }
+        }
+        if done {
+            let _ = remove_file(&self.inner.dirs.state.join(ADOPT_FILE));
         }
     }
 
@@ -1146,6 +1242,130 @@ mod tests {
     }
     fn playback() -> Grant {
         Grant::Playback(Credentials { username: Some("dummy-account".into()), auth_data: b"dummy-reusable-grant".to_vec(), auth_type: librespot_protocol::authentication::AuthenticationType::AUTHENTICATION_STORED_SPOTIFY_CREDENTIALS })
+    }
+
+    fn copy_tree(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            if entry.file_type().unwrap().is_dir() {
+                copy_tree(&entry.path(), &to.join(entry.file_name()));
+            } else {
+                std::fs::copy(entry.path(), to.join(entry.file_name())).unwrap();
+            }
+        }
+    }
+
+    /// #703: a portable folder made from the per-user state keeps the
+    /// sign-in saved there, and the installed copy keeps it too.
+    #[tokio::test]
+    async fn a_portable_copy_of_the_state_keeps_its_sign_in() {
+        let fixture = Fixture::new();
+        let grant = web(crate::auth::DEFAULT_WEB_CLIENT_ID);
+        let lease = fixture.store.lease(Slot::Shared);
+        lease.save(grant.clone()).await.unwrap();
+        let root = fixture.dirs.state.parent().unwrap();
+        let portable = AppDirs {
+            config: root.join("portable").join("config"),
+            state: root.join("portable").join("state"),
+            cache: root.join("portable").join("cache"),
+        };
+        copy_tree(&fixture.dirs.state, &portable.state);
+        adopt_profile(&portable.state, &fixture.dirs.state).unwrap();
+        let store = Store::with_backend(portable.clone(), Box::new(Backend(fixture.fake.clone())));
+        assert_ne!(store.inner.profile, fixture.store.inner.profile);
+        assert!(store.lease(Slot::Shared).load().await.unwrap().grant == Some(grant.clone()));
+        // Its own entry now, and the adoption is done.
+        let own = format!("{}:shared-web", store.inner.profile);
+        assert!(fixture.fake.lock().unwrap().values.contains_key(&own));
+        assert!(!portable.state.join(ADOPT_FILE).exists());
+        // Signing out of the portable copy leaves the installed one signed in.
+        store.revoke_spotify().unwrap();
+        store.lease(Slot::Shared).delete().await.unwrap();
+        let reopened = Store::with_backend(portable, Box::new(Backend(fixture.fake.clone())));
+        assert!(
+            reopened
+                .lease(Slot::Shared)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                .is_none()
+        );
+        let installed = fixture.restart().lease(Slot::Shared).load().await.unwrap();
+        assert!(installed.grant == Some(grant));
+        assert!(
+            !fixture.dirs.state.join(PROFILE_FILE).exists(),
+            "the installed state is left as it was"
+        );
+    }
+
+    /// An adoption that could not save is tried again at the next start.
+    #[tokio::test]
+    async fn a_failed_adoption_is_tried_again() {
+        let fixture = Fixture::new();
+        let grant = web(crate::auth::DEFAULT_WEB_CLIENT_ID);
+        fixture
+            .store
+            .lease(Slot::Shared)
+            .save(grant.clone())
+            .await
+            .unwrap();
+        let root = fixture.dirs.state.parent().unwrap();
+        let portable = AppDirs {
+            config: root.join("portable-config"),
+            state: root.join("portable-state"),
+            cache: root.join("portable-cache"),
+        };
+        copy_tree(&fixture.dirs.state, &portable.state);
+        adopt_profile(&portable.state, &fixture.dirs.state).unwrap();
+        fixture.fake.lock().unwrap().write_error = Some(Error::Unavailable);
+        let store = Store::with_backend(portable.clone(), Box::new(Backend(fixture.fake.clone())));
+        assert!(
+            store
+                .lease(Slot::Shared)
+                .load()
+                .await
+                .unwrap()
+                .grant
+                .is_none()
+        );
+        assert!(portable.state.join(ADOPT_FILE).exists());
+        fixture.fake.lock().unwrap().write_error = None;
+        let store = Store::with_backend(portable.clone(), Box::new(Backend(fixture.fake.clone())));
+        assert!(store.lease(Slot::Shared).load().await.unwrap().grant == Some(grant));
+        assert!(!portable.state.join(ADOPT_FILE).exists());
+    }
+
+    /// A portable folder records its own profile, so its sign-in survives
+    /// the folder moving to another drive, and a recorded one is kept.
+    #[tokio::test]
+    async fn a_portable_folder_keeps_its_sign_in_when_it_moves() {
+        let fixture = Fixture::new();
+        keep_profile(&fixture.dirs.state).unwrap();
+        let recorded = std::fs::read_to_string(fixture.dirs.state.join(PROFILE_FILE)).unwrap();
+        assert_eq!(recorded, fixture.store.inner.profile);
+        let grant = web(crate::auth::DEFAULT_WEB_CLIENT_ID);
+        fixture
+            .store
+            .lease(Slot::Shared)
+            .save(grant.clone())
+            .await
+            .unwrap();
+        let root = fixture.dirs.state.parent().unwrap();
+        let moved = AppDirs {
+            config: root.join("moved-config"),
+            state: root.join("moved-state"),
+            cache: root.join("moved-cache"),
+        };
+        std::fs::rename(&fixture.dirs.state, &moved.state).unwrap();
+        keep_profile(&moved.state).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(moved.state.join(PROFILE_FILE)).unwrap(),
+            recorded
+        );
+        let store = Store::with_backend(moved, Box::new(Backend(fixture.fake.clone())));
+        assert!(store.lease(Slot::Shared).load().await.unwrap().grant == Some(grant));
     }
 
     #[tokio::test]

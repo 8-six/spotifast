@@ -377,7 +377,10 @@ move Spotifast to Applications before updating it.
 Package-managed installations update through their package manager,
 including Homebrew, Flatpak, apt, dnf, pacman, Nix, and Cargo. Other
 installations, the AppImage among them, use the [Download page](/download/).
-Portable archives identify themselves with `spotifast-portable.txt`.
+Portable archives identify themselves with `spotifast-portable.txt`. On
+Windows, a portable copy keeps its settings, state and caches in the
+`spotifast-data` folder next to it, which updates leave as it is (see
+[portable copies](/settings-and-files/#portable-copies)).
 
 ## Library order
 

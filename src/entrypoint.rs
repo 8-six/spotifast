@@ -461,17 +461,21 @@ pub(crate) fn run() -> eframe::Result<()> {
         // one line per script at startup, for reports of odd-looking text.
         "warn,spotifast=info,fastframe_fonts=info"
     };
-    let dirs = paths::AppDirs::discover();
     #[cfg(feature = "demo")]
-    let dirs = cli
-        .demo_data
-        .as_ref()
-        .map(|base| paths::AppDirs {
-            config: base.join("config"),
-            state: base.join("state"),
-            cache: base.join("cache"),
-        })
-        .unwrap_or(dirs);
+    let demo_dirs = cli.demo_data.as_ref().map(|base| paths::AppDirs {
+        config: base.join("config"),
+        state: base.join("state"),
+        cache: base.join("cache"),
+    });
+    #[cfg(not(feature = "demo"))]
+    let demo_dirs: Option<paths::AppDirs> = None;
+    // Now that this is the running copy: a portable copy's own folder, made
+    // the first time from the per-user one (#703), or the per-user one.
+    let folders = match demo_dirs {
+        Some(dirs) => paths::Found::given(dirs),
+        None => paths::AppDirs::discover(),
+    };
+    let dirs = folders.dirs.clone();
     let dirs_ready = dirs.ensure();
     // Launched from a desktop, stderr goes nowhere; keep the run's log where
     // a bug report can find it, and a line per panic in the panic log (with
@@ -487,6 +491,7 @@ pub(crate) fn run() -> eframe::Result<()> {
     {
         eprintln!("not logging: {error}");
     }
+    folders.log();
     if let Err(error) = dirs_ready {
         log::warn!("unable to create the application directories: {error}");
     }

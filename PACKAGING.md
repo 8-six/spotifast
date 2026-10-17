@@ -218,6 +218,19 @@ program install. CI runs it on x64 and arm64.
 `python packaging\windows\test-uninstall.py ISCC.exe` covers the setup
 program's uninstaller.
 
+## Portable archives
+
+The release workflow puts `packaging/spotifast-portable.txt` (contents
+`spotifast-portable-v1`) next to the executable in the Windows `.zip` and the
+Linux `.tar.gz`. The updater reads it to decide that the copy may replace its
+own executable. On Windows it also makes the copy keep its settings, state and
+caches in `spotifast-data\` beside the executable (fastframe-dirs, #703), made
+the first time from a copy of the per-user settings and state. Never put a
+`spotifast-installer.txt` beside it: the installer marker wins, and the copy
+would update through the package and use the per-user folders. Linux copies
+keep the XDG folders. Keep the marker's name and contents as they are: older
+releases recognise exactly that file.
+
 `packaging/release-names.py DIST TAG` checks the release's `spotifast-`
 downloads and writes their checksums. Run `python3 packaging/test-release-names.py`
 when changing this step. Published historical downloads are never rewritten.

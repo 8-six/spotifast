@@ -62,7 +62,9 @@ its folder and its Start menu entry. Windows then lists one Spotifast under
 installed apps.
 {% endif %}
 To run Spotifast without an installer, download a ZIP file, extract it, and
-open `spotifast.exe`.
+open `spotifast.exe`. Since 0.13.4, it keeps its settings, state and caches
+in a `spotifast-data` folder next to it, so the folder carries everything
+(see [portable copies](/settings-and-files/#portable-copies)).
 
 - [Windows ZIP (most PCs)]({{ base }}/spotifast-v{{ v }}-x86_64-pc-windows-msvc.zip)
 - [Windows ZIP (ARM PCs)]({{ base }}/spotifast-v{{ v }}-aarch64-pc-windows-msvc.zip)

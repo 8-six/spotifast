@@ -268,11 +268,58 @@ On macOS, settings, state, and the logs are in
 `%LOCALAPPDATA%\paolino\spotifast\data`, and the caches in
 `%LOCALAPPDATA%\paolino\spotifast\cache`.
 
+### Portable copies
+
+Since 0.13.4, Spotifast started from the Windows ZIP keeps its files in a
+`spotifast-data` folder next to `spotifast.exe`, instead of the folders
+above. It knows it is the ZIP copy by the `spotifast-portable.txt` file beside
+it.
+
+| What | Where |
+| --- | --- |
+| Settings, skins, MilkDrop presets, themes | `spotifast-data\config\` |
+| State, history, logs, credential markers and the encrypted grant copies | `spotifast-data\state\` |
+| Caches | `spotifast-data\cache\` |
+
+The first time it starts without that folder, it copies (never moves) your
+settings and state from the folders above, so a ZIP copy you ran before keeps
+your preferences and sign-in. Caches are not copied; Spotifast fills them
+again. The installed Spotifast keeps its own files, and from then on the two
+never share settings, history or caches. The copy is made in
+`spotifast-data.partial` and renamed when complete, so a copy interrupted by
+a crash or power cut is made again at the next start.
+
+If Spotifast cannot write next to its executable, for example in
+`Program Files` or on read-only media, it uses the folders above and says why
+in the log. Updates replace only `spotifast.exe`, so `spotifast-data` stays as
+it is through updates and their rollback. To start a portable copy afresh,
+quit it and delete `spotifast-data`; the next start copies from the folders
+above again.
+
+Spotify sign-ins themselves are saved in Windows Credential Manager, which
+belongs to your Windows account, not to a folder, with an encrypted copy in
+`state\credential-storage\` that only your Windows account can read. A
+portable folder made from your installed copy's state starts signed in: at
+its first start it saves the installed copy's sign-ins again under entries of
+its own, and from then on the two are separate, so signing out of one leaves
+the other signed in. The folder records which entries are its own in
+`state\credential-profile`, so it keeps its sign-in when you move it to
+another folder or drive. On another computer or another Windows account,
+neither Credential Manager nor the encrypted copy can give the sign-in back,
+so sign in again there.
+
+The Linux `.tar.gz` also carries a `spotifast-portable.txt`, but only so the
+updater may replace the executable. Spotifast from it keeps the folders above:
+set `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` to move them.
+
 The running copy keeps its single-instance files in a private directory:
 `$XDG_RUNTIME_DIR/spotifast` on Linux (inside Flatpak, the app's own runtime
 directory), a `spotifast` folder in your private temporary directory
 (`$TMPDIR`) on macOS, and an `instance` folder in the state directory on
-Windows. `instance.lock` marks the running copy; the system releases it when
+Windows. A portable copy has its own, `instance\scope-portable-<id>` in the
+installed state directory, with one `<id>` per portable folder, so it runs
+beside the installed copy and other portable copies instead of handing your
+launches to them. `instance.lock` marks the running copy; the system releases it when
 Spotifast quits or crashes. `instance.sock` (Linux and macOS) is the socket
 a second launch and the `spotifast` command reach it through, which only your
 user can open. On Windows, `instance.key` holds the loopback port and a

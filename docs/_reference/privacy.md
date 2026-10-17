@@ -23,7 +23,9 @@ current release.
   pages. A proxy password, if you set one, uses the same store.
 - **Settings and history.** Settings, window positions, recent plays, the
   last session, skins, themes and MilkDrop presets live in the config
-  directory.
+  directory. A copy started from the Windows ZIP keeps them, its state and
+  its caches in `spotifast-data` next to it, so anyone who can read that
+  folder, on a shared USB drive say, can read them.
 - **Caches.** Downloaded audio, artwork, lyrics and library metadata live in
   the cache directory and can be deleted at any time.
 - **Log.** `spotifast.log` records errors and diagnostics. It stays on your
