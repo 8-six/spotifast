@@ -193,7 +193,7 @@ saved again only when Spotify has confirmed every change in it. This cache
 contains metadata only and can be deleted at any time.
 
 Home's Recently played, Your top artists, Top tracks, Made for you, Your top
-mixes and Your podcasts shelves are stored the same way under `home/`. They are shown when
+mixes, New releases and Your podcasts shelves are stored the same way under `home/`. They are shown when
 the account is verified and replaced shelf by shelf as Spotify answers. A
 shelf Spotify turns away keeps what it showed, and Home is read again once
 the network is back. Each shelf is saved as soon as its new answer arrives;

@@ -2722,6 +2722,25 @@ pub fn shelf(
 ) {
     ui.add_space(8.0);
     theme::section_title(ui, palette, title);
+    shelf_cards(ui, id, add_contents);
+}
+
+/// A shelf whose title opens a page, as Your top songs does; true when the
+/// title was clicked.
+pub fn linked_shelf(
+    ui: &mut Ui,
+    palette: &Palette,
+    id: &str,
+    title: &str,
+    add_contents: impl FnOnce(&mut Ui),
+) -> bool {
+    ui.add_space(8.0);
+    let clicked = theme::link(ui, title, theme::bold(17.0), palette.text).clicked();
+    shelf_cards(ui, id, add_contents);
+    clicked
+}
+
+fn shelf_cards(ui: &mut Ui, id: &str, add_contents: impl FnOnce(&mut Ui)) {
     ui.add_space(4.0);
     crate::autoscroll::show(
         ui,

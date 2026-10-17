@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use egui::{CornerRadius, Rect, Sense, Vec2, pos2, vec2};
 
-use crate::api::models::{Episode, PlayableItem, Playlist, Show, pick_image};
+use crate::api::models::{Album, Episode, PlayableItem, Playlist, Show, pick_image};
 use crate::app::App;
 use crate::i18n::gettext;
 use crate::model::{Action, Loadable, Page, RowContext};
@@ -50,6 +50,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         made_for_you(app, ui);
         top_mixes(app, ui);
     }
+    new_releases(app, ui);
     recently_played(app, ui);
     podcasts(app, ui);
     top_artists(app, ui);
@@ -370,6 +371,84 @@ fn top_mixes(app: &mut App, ui: &mut egui::Ui) {
         &gettext(app.locale, "Your top mixes"),
         |ui| playlist_cards(app, ui, "home-top_mixes-menu", &playlists),
     );
+}
+
+/// The latest releases from followed artists. A card opens its release;
+/// the title opens the page that plays all their songs, newest first.
+fn new_releases(app: &mut App, ui: &mut egui::Ui) {
+    let palette = app.palette;
+    let (albums, loading, failure) = match &app.home.new_releases {
+        Loadable::Loaded(albums) => (albums.clone(), false, None),
+        Loadable::Loading | Loadable::NotLoaded => (Vec::new(), true, None),
+        Loadable::Failed(error) => (Vec::new(), false, Some(error.clone())),
+    };
+    if albums.is_empty() && !loading && failure.is_none() {
+        return;
+    }
+    let open = widgets::linked_shelf(
+        ui,
+        &palette,
+        "new-releases",
+        &gettext(app.locale, "New releases"),
+        |ui| {
+            if albums.is_empty() && loading {
+                widgets::loading_row(ui, &palette, app.locale);
+            } else if albums.is_empty()
+                && let Some(message) = &failure
+            {
+                widgets::error_row(ui, app, message, Some(Page::Home));
+            }
+            for album in &albums {
+                release_card(app, ui, album);
+            }
+        },
+    );
+    if open {
+        app.actions.push(Action::Open(Page::NewReleases));
+    }
+}
+
+fn release_card(app: &mut App, ui: &mut egui::Ui, album: &Album) {
+    let palette = app.palette;
+    let artists =
+        crate::api::models::join_names(album.artists.iter().map(|artist| artist.name.as_str()));
+    let subtitle = if artists.is_empty() {
+        album.kind_label(app.locale).into_owned()
+    } else {
+        format!("{} • {artists}", album.kind_label(app.locale))
+    };
+    let context_here = app.playing_context_uri().as_deref() == Some(album.uri.as_str());
+    let playing_here = context_here && app.believed_playing();
+    let card_art = app.art_px(widgets::CARD_ART);
+    let card = widgets::card(
+        ui,
+        app,
+        pick_image(&album.images, card_art),
+        &album.name,
+        &subtitle,
+        widgets::CardCover::square(playing_here),
+    );
+    if card.play {
+        if context_here {
+            app.actions.push(Action::TogglePlay);
+        } else {
+            app.actions.push(Action::PlayContext {
+                uri: album.uri.clone(),
+                offset_uri: None,
+                offset_index: None,
+            });
+        }
+    }
+    if card.clicked {
+        app.actions
+            .push(Action::Open(Page::Album(album.id.clone())));
+    }
+    egui::Popup::context_menu(&card.response)
+        .id(ui.make_persistent_id(("home-new-releases-menu", &album.uri)))
+        .frame(widgets::menu_frame(&palette))
+        .show(|ui| {
+            widgets::context_menu_items(ui, app, &album.uri, &album.name, None);
+        });
 }
 
 fn playlist_cards(app: &mut App, ui: &mut egui::Ui, menu: &str, playlists: &[Playlist]) {

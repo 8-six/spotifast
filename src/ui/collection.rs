@@ -2340,7 +2340,7 @@ fn saves_text(locale: Locale, total: u64) -> String {
 }
 
 /// `1,234 songs, 2 hr 13 min` once the whole list is known.
-pub(super) fn songs_and_duration(locale: Locale, count: u32, duration_ms: u64) -> String {
+pub(crate) fn songs_and_duration(locale: Locale, count: u32, duration_ms: u64) -> String {
     ngettext(
         locale,
         // Translators: {count} is a number of songs and {duration} their total

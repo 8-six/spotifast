@@ -49,6 +49,16 @@ the same personalized read and has no fallback: the shelf appears once
 local playback has read it, and stays hidden for accounts Spotify gives no
 top mixes. If a refresh fails, the mixes already on screen remain.
 
+**New releases** shows the latest albums, EPs and singles from the artists
+you follow, newest first. A card opens its release. The shelf's title opens
+the **New releases** page, which lists every song of those releases, newest
+release first, with Play and Shuffle as on a playlist. The releases come
+from the feed behind the bell in Spotify's own apps when local playback is
+set up; reading it there does not mark anything as seen in Spotify. Without
+local playback, or when that feed cannot be read, the shelf asks the Web API
+for the newest albums and singles of up to 50 of the artists you follow
+instead. The shelf stays hidden when there are no releases.
+
 Point at a horizontal shelf, such as Made for you or Recently played on
 Home, and hold `Shift` while turning the mouse wheel. The shelf moves while
 the surrounding page stays put. Release `Shift` to scroll the page normally.

@@ -320,6 +320,29 @@ or the request fails, the page keeps the edits and offers a retry. Refreshing
 again retries confirmation without losing the local changes. This uses the
 existing playlist requests and adds no periodic polling.
 
+## New releases on Home
+
+Home's **New releases** shelf is read when Home refreshes, and again when
+local playback becomes ready. With local playback set up, Spotifast sends
+Spotify's own new-releases feed query (`queryWhatsNewFeed`) to Pathfinder
+with the session's Login5 bearer and client token, asking for the first 50
+albums, EPs and singles. Spotifast never sends the feed's mutation that marks
+items as seen, so the bell in Spotify's apps is left as it was. The query
+uses no Web API quota.
+
+When local playback is not set up, or the feed cannot be read, the Web API
+stands in: the followed artists, 50 to a page, and for each of the first 50
+of them its ten newest albums and singles, through the normal personal/shared
+app routing, merged and sorted by release date. That answer costs a request
+for each artist, so it is kept in memory for an hour. A rate limit, exhausted
+quota or expired sign-in stops the remaining artists for that refresh; the
+shelf keeps what it showed before.
+
+The **New releases** page lists the songs of the releases on the shelf. Over
+the playback session they come from two batched metadata reads, one for the
+releases' track lists and one for the songs; without it, from the Web API's
+album tracks, one request per release.
+
 ## Podcasts on Home
 
 Since 0.10.0, Home's **Your podcasts** shelf reads the first page of

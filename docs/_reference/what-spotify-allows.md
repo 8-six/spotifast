@@ -99,6 +99,12 @@ clients. Spotifast uses its session for:
 - **Your top mixes** through the same personalized Home read, from Spotify's
   top mixes section. Search cannot find these personal mixes, so there is no
   fallback: without local playback the shelf stays hidden.
+- **New releases** from Spotify's own new-releases feed, the private
+  Pathfinder query (`queryWhatsNewFeed`) behind the bell in Spotify's apps.
+  It is only read; the request that marks its items as seen is never sent.
+  When it fails, the Web API's followed artists and their latest albums and
+  singles stand in, for up to 50 artists. The songs on the New releases page
+  come from two batched metadata reads over the session.
 - **Radio and autoplay** through Spotify's context resolver: stations seeded
   by a song, playlist, album, or artist. Each resolution is a fresh mix of 50
   songs, so a radio page plays the songs it shows rather than asking again.

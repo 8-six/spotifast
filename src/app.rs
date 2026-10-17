@@ -2016,6 +2016,12 @@ impl App {
             .find(|saved| saved.album.id == id)
             .map(|saved| &saved.album)
             .or_else(|| {
+                self.home
+                    .new_releases
+                    .get()
+                    .and_then(|albums| albums.iter().find(|album| album.id == id))
+            })
+            .or_else(|| {
                 let results = self.search.results.get()?;
                 results
                     .albums
@@ -2491,6 +2497,11 @@ impl App {
                 }
                 if became_ready {
                     self.reread_playlists_over_session();
+                    // The session reads Spotify's own feed of new releases,
+                    // which the Web API stand-in only approximates.
+                    if self.home.requested {
+                        self.load_new_releases();
+                    }
                 }
                 self.replay_queued_play();
             }
@@ -2562,6 +2573,11 @@ impl App {
             Page::TopSongs => {
                 if self.home.top_songs.get().is_none() {
                     self.load_top_songs(true);
+                }
+            }
+            Page::NewReleases => {
+                if self.home.new_release_tracks.get().is_none() {
+                    self.load_new_release_page(true);
                 }
             }
             Page::Search => {}
@@ -2707,6 +2723,8 @@ impl App {
             generation: self.home.generation,
             top_songs_generation: self.home.top_songs_generation,
             made_for_you_generation: self.home.made_for_you_generation,
+            new_releases_generation: self.home.new_releases_generation,
+            new_release_tracks_generation: self.home.new_release_tracks_generation,
             ..HomeData::default()
         };
         self.playlist_pages.clear();
@@ -2758,7 +2776,7 @@ impl App {
                 || match page {
                     Page::Playlist(id) => self.playlist_pages.contains_key(id),
                     Page::Album(id) => self.album_pages.contains_key(id),
-                    Page::LikedSongs | Page::TopSongs => true,
+                    Page::LikedSongs | Page::TopSongs | Page::NewReleases => true,
                     _ => false,
                 }
         });
@@ -4571,6 +4589,11 @@ impl App {
         {
             home.top_mixes = Loadable::Loaded(mixes);
         }
+        if let Some(albums) = cached.new_releases
+            && home.new_releases.get().is_none()
+        {
+            home.new_releases = Loadable::Loaded(albums);
+        }
         if !home.podcasts_answered && home.podcasts.is_empty() {
             home.podcasts = cached.podcasts;
         }
@@ -4599,6 +4622,7 @@ impl App {
             made_for_you: home.made_for_you.get().cloned(),
             made_for_you_personalized: home.made_for_you_personalized,
             top_mixes: home.top_mixes.get().cloned(),
+            new_releases: home.new_releases.get().cloned(),
             discover: Default::default(),
             podcasts: home.podcasts.clone(),
         };
@@ -4623,6 +4647,11 @@ impl App {
             Page::TopSongs => {
                 if self.network_reachable {
                     self.load_top_songs(false);
+                }
+            }
+            Page::NewReleases => {
+                if self.network_reachable {
+                    self.load_new_release_page(false);
                 }
             }
             Page::Search => {}
@@ -4808,6 +4837,7 @@ impl App {
             generation,
         });
         self.load_made_for_you(force);
+        self.load_new_releases();
         // The podcast shelf reads from the saved shows. The first page of
         // them is the one the Podcasts shelf of the library asks for.
         if self.library.shows.loaded_once {
@@ -4815,6 +4845,51 @@ impl App {
         } else if !self.library.shows.loading && self.library.shows.error.is_none() {
             self.load_more(Page::Podcasts);
         }
+    }
+
+    /// Asks for the New releases shelf again, keeping the cards it shows.
+    fn load_new_releases(&mut self) {
+        self.home.new_releases_generation += 1;
+        if !self.home.new_releases_loading {
+            self.home.awaiting += 1;
+        }
+        self.home.new_releases_loading = true;
+        if self.home.new_releases.get().is_none() {
+            self.home.new_releases = Loadable::Loading;
+        }
+        self.backend.api(ApiRequest::NewReleases {
+            generation: self.home.new_releases_generation,
+        });
+    }
+
+    /// The New releases page: the shelf's releases first, then their songs.
+    /// `force` reads the songs again even when they belong to the releases
+    /// on the shelf.
+    fn load_new_release_page(&mut self, force: bool) {
+        let Some(albums) = self.home.new_releases.get().cloned() else {
+            if !self.home.new_releases_loading {
+                self.load_new_releases();
+            }
+            return;
+        };
+        let uris: Vec<String> = albums.iter().map(|album| album.uri.clone()).collect();
+        let current = self.home.new_release_tracks_for == uris
+            && !matches!(
+                self.home.new_release_tracks,
+                Loadable::NotLoaded | Loadable::Failed(_)
+            );
+        if current && !force {
+            return;
+        }
+        self.home.new_release_tracks_generation += 1;
+        self.home.new_release_tracks_for = uris;
+        if self.home.new_release_tracks.get().is_none() {
+            self.home.new_release_tracks = Loadable::Loading;
+        }
+        self.backend.api(ApiRequest::NewReleaseTracks {
+            albums,
+            generation: self.home.new_release_tracks_generation,
+        });
     }
 
     /// Supersedes an older shelf request without clearing its visible cards.
@@ -5150,6 +5225,10 @@ impl App {
         match &page {
             Page::Home => self.load_home(true),
             Page::TopSongs => self.load_top_songs(true),
+            Page::NewReleases => {
+                self.load_new_releases();
+                self.load_new_release_page(true);
+            }
             Page::LikedSongs => {
                 self.refresh_liked_songs();
                 return;
@@ -6418,6 +6497,31 @@ impl App {
                     self.home.made_for_you_loading = false;
                     self.home_answered(changed);
                 }
+            }
+            ApiResponse::NewReleases { generation, result } => {
+                if generation != self.home.new_releases_generation {
+                    return;
+                }
+                let changed = result.is_ok();
+                self.home.refresh_failed |= !changed;
+                self.home.new_releases.refresh(result);
+                if self.home.new_releases_loading {
+                    self.home.new_releases_loading = false;
+                    self.home_answered(changed);
+                }
+                if *self.page() == Page::NewReleases {
+                    self.load_new_release_page(false);
+                }
+            }
+            ApiResponse::NewReleaseTracks { generation, result } => {
+                if generation != self.home.new_release_tracks_generation {
+                    return;
+                }
+                if let Ok(tracks) = &result {
+                    let uris: Vec<String> = tracks.iter().map(|track| track.uri.clone()).collect();
+                    self.request_contains(uris);
+                }
+                self.home.new_release_tracks.refresh(result);
             }
             // A reload reads the playlists from the top again under a new
             // generation, so a page any earlier load asked for no longer
@@ -14347,6 +14451,7 @@ mod tests {
 
     fn cached_home() -> HomeSnapshot {
         HomeSnapshot {
+            new_releases: None,
             made_for_you: None,
             made_for_you_personalized: false,
             top_mixes: cached_playlists(&["cached-mix"]),
@@ -14426,6 +14531,10 @@ mod tests {
             "a turned away search keeps what it showed"
         );
         assert_eq!(app.home.top_mixes.get().map(Vec::len), Some(1));
+        app.handle_api(ApiResponse::NewReleases {
+            generation: app.home.new_releases_generation,
+            result: Err(crate::api::ApiError::RateLimited),
+        });
 
         // The failed shelf refresh keeps its cached cards. Successful
         // recently played and top tracks answers are saved independently.
@@ -26727,6 +26836,83 @@ mod tests {
         assert_eq!(app.home.top_mixes.get().unwrap(), &vec![mix]);
     }
 
+    fn release(id: &str) -> Album {
+        Album {
+            id: id.into(),
+            uri: format!("spotify:album:{id}"),
+            name: id.into(),
+            ..Default::default()
+        }
+    }
+
+    /// #907: New releases joins the Home refresh, keeps its cards when a
+    /// refresh is turned away, and ignores an answer to an older request.
+    #[test]
+    fn new_releases_join_the_home_refresh_and_keep_their_cards() {
+        let mut app = headless_app();
+        app.load_home(false);
+        assert!(app.home.new_releases.is_loading());
+        assert!(app.home.new_releases_loading);
+        let first = app.home.new_releases_generation;
+        app.handle_api(ApiResponse::NewReleases {
+            generation: first,
+            result: Ok(vec![release("newest"), release("older")]),
+        });
+        assert_eq!(app.home.new_releases.get().map(Vec::len), Some(2));
+        assert!(!app.home.new_releases_loading);
+
+        app.load_home(true);
+        assert!(!app.home.new_releases.is_loading(), "the cards stay up");
+        app.handle_api(ApiResponse::NewReleases {
+            generation: first,
+            result: Ok(Vec::new()),
+        });
+        app.handle_api(ApiResponse::NewReleases {
+            generation: app.home.new_releases_generation,
+            result: Err(crate::api::ApiError::RateLimited),
+        });
+        assert_eq!(app.home.new_releases.get().map(Vec::len), Some(2));
+        assert!(app.home.refresh_failed);
+        assert_eq!(
+            app.known_album("newest").map(|album| album.name.as_str()),
+            Some("newest")
+        );
+    }
+
+    /// #907: the page reads the songs of the releases on the shelf, once,
+    /// and again when the shelf brings other releases.
+    #[test]
+    fn the_new_releases_page_reads_the_songs_of_the_shelf() {
+        let mut app = headless_app();
+        app.home.new_releases = Loadable::Loaded(vec![release("a"), release("b")]);
+        app.load_new_release_page(false);
+        assert!(app.home.new_release_tracks.is_loading());
+        assert_eq!(
+            app.home.new_release_tracks_for,
+            ["spotify:album:a", "spotify:album:b"]
+        );
+        let generation = app.home.new_release_tracks_generation;
+        app.load_new_release_page(false);
+        assert_eq!(app.home.new_release_tracks_generation, generation);
+        app.handle_api(ApiResponse::NewReleaseTracks {
+            generation,
+            result: Ok(vec![Track {
+                uri: "spotify:track:a1".into(),
+                ..Default::default()
+            }]),
+        });
+        assert_eq!(app.home.new_release_tracks.get().map(Vec::len), Some(1));
+
+        app.home.new_releases = Loadable::Loaded(vec![release("c")]);
+        app.load_new_release_page(false);
+        assert_eq!(app.home.new_release_tracks_generation, generation + 1);
+        assert_eq!(
+            app.home.new_release_tracks.get().map(Vec::len),
+            Some(1),
+            "the songs on screen stay until the new ones arrive"
+        );
+    }
+
     /// Without a session read, Your top mixes has nothing to show and no
     /// fallback, so the shelf stays hidden while Made for you falls back.
     #[test]
@@ -26779,7 +26965,8 @@ mod tests {
             });
             let current = app.home.made_for_you_generation;
             assert!(current > old);
-            assert_eq!(app.home.awaiting, 4);
+            // Made for you and New releases each count once.
+            assert_eq!(app.home.awaiting, 5);
             assert_eq!(app.home.made_for_you.get(), Some(&fallback));
             app.handle_playback(LocalPlayback::Ready {
                 device_id: "local".into(),
@@ -26802,7 +26989,8 @@ mod tests {
             });
             assert_eq!(app.home.made_for_you.get().unwrap()[0].id, "personalized");
             assert!(app.home.made_for_you_personalized);
-            assert_eq!(app.home.awaiting, 3);
+            // The three shelves and New releases are still on their way.
+            assert_eq!(app.home.awaiting, 4);
         }
     }
 
@@ -26822,7 +27010,8 @@ mod tests {
             top_mixes: Ok(Vec::new()),
         });
         assert!(app.home.made_for_you.is_loading());
-        assert_eq!(app.home.awaiting, 4);
+        // Three shelves, Made for you and New releases.
+        assert_eq!(app.home.awaiting, 5);
     }
 
     /// Personalized cache order and origin survive a restart; late disk data cannot replace a live shelf.

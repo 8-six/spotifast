@@ -1084,6 +1084,89 @@ async fn metadata(
     answers(&asked, response)
 }
 
+/// Every song of `albums`, album by album in the order given and each in its
+/// own order, with the album as the list knows it. Two metadata batches: one
+/// for the albums' track lists, one for the songs.
+pub async fn album_tracks(session: &Session, albums: &[Album]) -> Result<Vec<Track>, Failure> {
+    let mut request = BatchedEntityRequest::new();
+    for album in albums {
+        request.entity_request.push(EntityRequest {
+            entity_uri: album.uri.clone(),
+            query: vec![ExtensionQuery {
+                extension_kind: EnumOrUnknown::new(ExtensionKind::ALBUM_V4),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+    }
+    if request.entity_request.is_empty() {
+        return Ok(Vec::new());
+    }
+    let response = session.spclient().get_extended_metadata(request).await?;
+    let lists = album_track_lists(&response)?;
+    let uris: Vec<SpotifyUri> = albums
+        .iter()
+        .flat_map(|album| lists.get(&album.uri).into_iter().flatten())
+        .cloned()
+        .collect();
+    let found = metadata(session, uris.iter()).await?;
+    let mut tracks = Vec::new();
+    for album in albums {
+        for uri in lists.get(&album.uri).into_iter().flatten() {
+            if let Some(PlayableItem::Track(track)) = found.get(&uri.to_uri()) {
+                let mut track = track.clone();
+                track.album = Some(Album {
+                    tracks: None,
+                    ..album.clone()
+                });
+                tracks.push(track);
+            }
+        }
+    }
+    Ok(tracks)
+}
+
+/// Each album's songs, by album URI, from an `ALBUM_V4` metadata answer.
+/// An album Spotify no longer has is left out; any other refusal is a retry.
+fn album_track_lists(
+    response: &BatchedExtensionResponse,
+) -> Result<HashMap<String, Vec<SpotifyUri>>, Failure> {
+    let retry = |reason: String| Failure::Retry(anyhow::anyhow!(reason));
+    let mut lists = HashMap::new();
+    for array in &response.extended_metadata {
+        let provider = array.header.provider_error_status;
+        if !matches!(provider, 0 | 200) {
+            return Err(retry(format!("metadata provider answered {provider}")));
+        }
+        if array.extension_kind.enum_value() != Ok(ExtensionKind::ALBUM_V4) {
+            continue;
+        }
+        for data in &array.extension_data {
+            match data.header.status_code {
+                0 | 200 => {}
+                404 | 451 => continue,
+                code => return Err(retry(format!("{} answered {code}", data.entity_uri))),
+            }
+            let album = data
+                .extension_data
+                .as_ref()
+                .and_then(|any| {
+                    librespot_protocol::metadata::Album::parse_from_bytes(&any.value).ok()
+                })
+                .ok_or_else(|| retry(format!("unreadable metadata for {}", data.entity_uri)))?;
+            let songs = album
+                .disc
+                .iter()
+                .flat_map(|disc| &disc.track)
+                .filter_map(|track| SpotifyId::from_raw(track.gid()).ok())
+                .map(|id| SpotifyUri::Track { id })
+                .collect();
+            lists.insert(data.entity_uri.clone(), songs);
+        }
+    }
+    Ok(lists)
+}
+
 /// One request for the details of every track and episode among `uris`,
 /// with the URIs it asks for. A playlist can hold the same song twice; it
 /// is asked for once.

@@ -47,7 +47,11 @@ Spotifast connects only to the services below.
   are cached in memory for ten minutes and saved in the account-scoped Home
   cache for the next start. Both caches are cleared on sign-out. If the Made
   for you request fails, the shared Web API receives playlist-name searches
-  for approximate suggestions.
+  for approximate suggestions. Home's **New releases** request sends the
+  playback session's Login5 bearer and client token to Spotify's Pathfinder
+  service, which answers with the account's feed of new releases; when it
+  cannot, the Web API is asked for the followed artists and their latest
+  albums. The shelf is saved in the same Home cache.
 - **LRCLIB.** When the lyrics panel is open and Spotify has no lyrics for the
   song, Spotifast sends its artist, title, album and length to
   [lrclib.net](https://lrclib.net). Nothing identifying you is included.

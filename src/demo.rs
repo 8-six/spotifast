@@ -593,6 +593,31 @@ pub fn populate(app: &mut App) {
     app.home.recommendations = Loadable::Loaded(tracks.iter().skip(20).take(10).cloned().collect());
     app.home.made_for_you = Loadable::Loaded(playlists.iter().take(10).cloned().collect());
     app.home.top_mixes = Loadable::Loaded((0..TOP_MIXES.len()).map(top_mix).collect());
+    // New releases: this autumn's records, newest first, and their songs.
+    let releases: Vec<Album> = (0..8)
+        .map(|index| {
+            let mut release = album(index);
+            release.release_date = Some(format!("2026-10-{:02}", 16 - index * 2));
+            release
+        })
+        .collect();
+    app.home.new_release_tracks = Loadable::Loaded(
+        releases
+            .iter()
+            .enumerate()
+            .flat_map(|(index, release)| {
+                let songs = if release.is_single_release() { 1 } else { 3 };
+                (0..songs).map(move |song| {
+                    let mut track = track(index + song * ALBUMS.len());
+                    track.album = Some(release.clone());
+                    track.artists.clone_from(&release.artists);
+                    track
+                })
+            })
+            .collect(),
+    );
+    app.home.new_release_tracks_for = releases.iter().map(|release| release.uri.clone()).collect();
+    app.home.new_releases = Loadable::Loaded(releases);
 
     // Search.
     app.search.query = "Bonobo".into();
@@ -5961,6 +5986,7 @@ mod tests {
             for (label, expected) in [
                 ("Made for you", made_for_you),
                 ("Your top mixes", made_for_you),
+                ("New releases", true),
                 ("Recommended for you", recommendations),
                 ("Liked Songs", true),
                 ("Recently played", true),
@@ -5973,6 +5999,34 @@ mod tests {
                     "{label}, made_for_you={made_for_you}, recommendations={recommendations}"
                 );
             }
+        }
+        app.backend.shutdown();
+    }
+
+    /// #907: the New releases page lists the releases' songs, newest
+    /// release first, under a Play button.
+    #[test]
+    fn the_new_releases_page_lists_the_songs_of_the_releases() {
+        let (ctx, mut app) = accessible_app("new-releases-page");
+        let view = crate::ui::new_releases::page;
+        view_frame(&ctx, &mut app, vec![], view);
+        let text = view_frame(&ctx, &mut app, vec![], view);
+        let first = app.home.new_release_tracks.get().unwrap()[0].clone();
+        assert_eq!(
+            first.album.as_ref().map(|album| album.uri.as_str()),
+            app.home
+                .new_releases
+                .get()
+                .unwrap()
+                .first()
+                .map(|album| album.uri.as_str())
+        );
+        for label in ["New releases", first.name.as_str()] {
+            assert!(
+                text.iter().any(|(text, _)| text == label),
+                "{label} missing from {:?}",
+                text.iter().map(|(text, _)| text).collect::<Vec<_>>()
+            );
         }
         app.backend.shutdown();
     }
