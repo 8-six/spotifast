@@ -295,6 +295,7 @@ main fields are:
 | `eq_on` | `false` | The equalizer shapes local playback |
 | `eq_preamp_db` | `0` | The preamp, in decibels, -12 to 12 |
 | `eq_bands_db` | ten zeros | The bands from 60 Hz to 16 kHz, in decibels, -12 to 12 |
+| `eq_user_presets` | `[]` | Equalizer presets you saved, each with a `name`, its `preamp_db` and its ten `bands_db`, listed after the built-in presets |
 | `balance` | `0` | Left to right, -1 to 1, for local playback |
 | `mono` | `false` | Play both channels the same |
 | `playlist_shaded` | `false` | The playlist window is rolled up to its title bar |
@@ -347,7 +348,7 @@ and `--demo-show` adds surfaces on top of it: a comma separated list of
 `focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`,
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
-`library-grid-wide`, `rtl`, `player-bar-spectrum`, `player-bar-waveform`,
+`library-grid-wide`, `eq-user-presets`, `rtl`, `player-bar-spectrum`, `player-bar-waveform`,
 `lyrics-fullscreen-view`, `lyrics-fullscreen-instrumental`, `signed-out`, and `connecting`. The Library variants show the list or cover grid with
 a normal, narrow, or wide sidebar and collapsed artwork for matching captures.
 `shuffle-selected` and `shuffle-started` capture the selected-mode and
@@ -361,6 +362,7 @@ session connects.
 sound on this computer with that player bar visualizer on.
 `lyrics-fullscreen-view` and `lyrics-fullscreen-instrumental` draw full-screen
 lyrics, with words or without, at the window's own size.
+`eq-user-presets` saves a sample equalizer preset and puts it in use.
 `rtl` gives the first songs of `playlist:pl1` invented Hebrew and Arabic
 titles, some mixed with English, numbers, and brackets.
 `collection-loading` keeps known collection metadata and placeholder artwork
