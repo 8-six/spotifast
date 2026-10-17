@@ -53,6 +53,14 @@ local playback:
    session's token and an already verified Web API grant. Each album or artist
    is read once per run, and a read that fails leaves the column out.
 
+   The **Listening activity** panel also needs this session. While the panel
+   is open, and only then, the session reads Spotify's private
+   `listening-activity/v1/feed` every 15 seconds through librespot's
+   spclient, then reads the songs' details in one batched request. Friends' names, avatars and playlist names
+   are read once per run and kept in memory. Nothing from the panel is written
+   to disk or logged. If the feed fails, the session's older
+   `presence-view/v1/buddylist` stands in.
+
 Local playback authorization stays separate from both Web API grants. Its
 browser approval requests only the streaming permission and always shows the
 consent dialog. The playback session uses the account ID verified by either
