@@ -904,6 +904,12 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                 app.auth = AuthStatus::Connecting;
                 app.user = None;
             }
+            "waiting-for-browser" => {
+                app.auth = AuthStatus::WaitingForBrowser {
+                    url: "https://accounts.spotify.com/authorize".into(),
+                };
+                app.user = None;
+            }
             "recents" => {
                 app.show_queue_panel = true;
                 app.queue_tab = QueueTab::Recents;
@@ -5722,6 +5728,93 @@ mod tests {
             app.frame_ui(ui);
         });
         output.textures_delta.clear();
+    }
+
+    /// Every line of the sign-in card is drawn whole, without a scroll bar,
+    /// in each state at the smallest main window and a usual one (#782).
+    #[test]
+    fn the_sign_in_card_fits_what_it_shows_without_scrolling() {
+        let (ctx, mut app) = accessible_app("sign-in-card");
+        app.backend.set_offline(true);
+        let states = [
+            AuthStatus::SignedOut,
+            AuthStatus::WaitingForBrowser {
+                url: "https://accounts.spotify.com/authorize".into(),
+            },
+            AuthStatus::Connecting,
+        ];
+        for size in [
+            egui::vec2(
+                crate::window::MAIN_MIN_SIZE[0],
+                crate::window::MAIN_MIN_SIZE[1],
+            ),
+            egui::vec2(1280.0, 800.0),
+        ] {
+            let draw = |app: &mut App, events: Vec<egui::Event>| {
+                let mut events = Some(events);
+                let mut output = None;
+                for _ in 0..6 {
+                    let mut frame = ctx.run_ui(
+                        egui::RawInput {
+                            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
+                            events: events.take().unwrap_or_default(),
+                            ..Default::default()
+                        },
+                        |ui| app.frame_ui(ui),
+                    );
+                    frame.textures_delta.clear();
+                    output = Some(frame);
+                }
+                output.unwrap()
+            };
+            // The card's title, and that no text in the card is cut off.
+            let title = |output: &egui::FullOutput, state: &AuthStatus| {
+                let mut title = None;
+                for clipped in &output.shapes {
+                    if let egui::epaint::Shape::Text(text) = &clipped.shape {
+                        let rect = text.galley.rect.translate(text.pos.to_vec2());
+                        assert!(
+                            clipped.clip_rect.expand(0.5).contains_rect(rect),
+                            "{:?} is cut off at {size:?} in {state:?}",
+                            text.galley.job.text
+                        );
+                        if text.galley.job.text == "Spotifast" {
+                            title = Some(rect);
+                        }
+                    }
+                }
+                title.unwrap_or_else(|| panic!("the card was drawn in {state:?}"))
+            };
+            for state in &states {
+                app.auth = state.clone();
+                app.user = None;
+                let before = title(&draw(&mut app, Vec::new()), state);
+                // A card with nothing hidden has nothing to scroll, and so
+                // shows no scroll bar.
+                let wheel = vec![
+                    egui::Event::PointerMoved(before.center()),
+                    egui::Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: egui::vec2(0.0, -400.0),
+                        modifiers: egui::Modifiers::NONE,
+                        phase: egui::TouchPhase::Move,
+                    },
+                ];
+                draw(&mut app, wheel);
+                let after = title(&draw(&mut app, Vec::new()), state);
+                assert_eq!(before, after, "the card scrolled at {size:?} in {state:?}");
+                // Back to the top for the next state.
+                let wheel = vec![egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, 400.0),
+                    modifiers: egui::Modifiers::NONE,
+                    phase: egui::TouchPhase::Move,
+                }];
+                draw(&mut app, wheel);
+                draw(&mut app, Vec::new());
+            }
+        }
+        app.backend.shutdown();
     }
 
     /// A toast is wide enough to avoid wrapping every word.
