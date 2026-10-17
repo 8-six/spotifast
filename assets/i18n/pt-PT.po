@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 19:53+0200\n"
+"POT-Creation-Date: 2026-10-17 20:47+0200\n"
 "PO-Revision-Date: 2026-09-23 20:00+0000\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: European Portuguese\n"
@@ -34,7 +34,7 @@ msgid "Playlist"
 msgstr "Playlist"
 
 #: src/ui/sidebar.rs:312 src/app.rs:2954 src/app.rs:20159
-#: src/ui/collection.rs:2214 src/ui/home.rs:79 src/ui/keys.rs:264
+#: src/ui/collection.rs:2214 src/ui/home.rs:92 src/ui/keys.rs:264
 #: src/ui/winamp/playlist.rs:653
 msgid "Liked Songs"
 msgstr "Músicas de que gostas"
@@ -43,8 +43,8 @@ msgstr "Músicas de que gostas"
 msgid "Library order"
 msgstr "Ordem da biblioteca"
 
-#: src/ui/sidebar.rs:356 src/ui/home.rs:340 src/ui/home.rs:350
-#: src/ui/home.rs:377
+#: src/ui/sidebar.rs:356 src/ui/home.rs:438 src/ui/home.rs:448
+#: src/ui/home.rs:475
 msgid "Recently played"
 msgstr "Reproduzidos recentemente"
 
@@ -140,7 +140,7 @@ msgid "Search in Your Library"
 msgstr "Pesquisar na tua biblioteca"
 
 #: src/ui/sidebar.rs:1243 src/app.rs:3015 src/ui/artist.rs:216
-#: src/ui/artist.rs:359 src/ui/home.rs:614 src/ui/library.rs:101
+#: src/ui/artist.rs:359 src/ui/home.rs:712 src/ui/library.rs:101
 #: src/ui/search.rs:159 src/ui/search.rs:490 src/ui/winamp/playlist.rs:746
 msgid "Artist"
 msgstr "Artista"
@@ -2173,7 +2173,7 @@ msgstr "Ainda não há nada aqui"
 msgid "Added songs appear here."
 msgstr "As músicas adicionadas aparecem aqui."
 
-#: src/ui/collection.rs:1500 src/ui/home.rs:727
+#: src/ui/collection.rs:1500 src/ui/home.rs:825
 msgid "Your top songs"
 msgstr "As tuas músicas mais ouvidas"
 
@@ -2483,45 +2483,45 @@ msgstr "Descrição opcional"
 msgid "Save"
 msgstr "Guardar"
 
-#: src/ui/home.rs:243
+#: src/ui/home.rs:341
 msgid "Made for you"
 msgstr "Feito para ti"
 
-#: src/ui/home.rs:272
+#: src/ui/home.rs:370
 msgid "Your top mixes"
 msgstr "Os teus mixes mais ouvidos"
 
 #. Translators: {owner} is the name of the playlist's owner.
-#: src/ui/home.rs:287 src/ui/search.rs:622
+#: src/ui/home.rs:385 src/ui/search.rs:622
 #, rust-format
 msgid "By {owner}"
 msgstr "De {owner}"
 
-#: src/ui/home.rs:514
+#: src/ui/home.rs:612
 msgid "Your podcasts"
 msgstr "Os teus podcasts"
 
 #. Translators: {time} is the time left in an episode, such as 12 min; {show} is the podcast's name.
-#: src/ui/home.rs:520
+#: src/ui/home.rs:618
 #, rust-format
 msgid "{time} left • {show}"
 msgstr "Faltam {time} • {show}"
 
 #. Translators: {show} is the podcast's name.
-#: src/ui/home.rs:529
+#: src/ui/home.rs:627
 #, rust-format
 msgid "New • {show}"
 msgstr "Novo • {show}"
 
-#: src/ui/home.rs:577 src/ui/home.rs:587 src/ui/home.rs:602
+#: src/ui/home.rs:675 src/ui/home.rs:685 src/ui/home.rs:700
 msgid "Your top artists"
 msgstr "Os teus artistas mais ouvidos"
 
-#: src/ui/home.rs:728
+#: src/ui/home.rs:826
 msgid "Show more top songs"
 msgstr "Mostrar mais músicas mais ouvidas"
 
-#: src/ui/home.rs:742
+#: src/ui/home.rs:840
 msgid "Recommended for you"
 msgstr "Recomendado para ti"
 

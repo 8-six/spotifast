@@ -26,6 +26,14 @@ click. macOS retains its existing middle-click behavior.
 
 ## Scrolling shelves
 
+The tiles at the top of Home show what you played most recently, as
+Spotify's Home does: the playlists, albums, artists and podcasts you played
+from, Liked Songs, and songs you played on their own, newest first. A tile
+opens its page, and its play button starts it again; a song's tile plays the
+song and opens its album. Until Spotify's play history arrives, or when it
+holds fewer than eight, Liked Songs and the first playlists in your Library
+fill the rest.
+
 **Made for you** shows the personalized playlist cards Spotify returns for
 your account, in Spotify's order, when local playback and a current Web API
 Home grant for that playback account are available. If local playback is

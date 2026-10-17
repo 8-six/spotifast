@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 19:53+0200\n"
+"POT-Creation-Date: 2026-10-17 20:47+0200\n"
 "PO-Revision-Date: 2026-09-09 13:30+0000\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: Swedish\n"
@@ -34,7 +34,7 @@ msgid "Playlist"
 msgstr "Spellista"
 
 #: src/ui/sidebar.rs:312 src/app.rs:2954 src/app.rs:20159
-#: src/ui/collection.rs:2214 src/ui/home.rs:79 src/ui/keys.rs:264
+#: src/ui/collection.rs:2214 src/ui/home.rs:92 src/ui/keys.rs:264
 #: src/ui/winamp/playlist.rs:653
 msgid "Liked Songs"
 msgstr "Gillade låtar"
@@ -43,8 +43,8 @@ msgstr "Gillade låtar"
 msgid "Library order"
 msgstr "Biblioteksordning"
 
-#: src/ui/sidebar.rs:356 src/ui/home.rs:340 src/ui/home.rs:350
-#: src/ui/home.rs:377
+#: src/ui/sidebar.rs:356 src/ui/home.rs:438 src/ui/home.rs:448
+#: src/ui/home.rs:475
 msgid "Recently played"
 msgstr "Nyligen spelade"
 
@@ -140,7 +140,7 @@ msgid "Search in Your Library"
 msgstr "Sök i ditt bibliotek"
 
 #: src/ui/sidebar.rs:1243 src/app.rs:3015 src/ui/artist.rs:216
-#: src/ui/artist.rs:359 src/ui/home.rs:614 src/ui/library.rs:101
+#: src/ui/artist.rs:359 src/ui/home.rs:712 src/ui/library.rs:101
 #: src/ui/search.rs:159 src/ui/search.rs:490 src/ui/winamp/playlist.rs:746
 msgid "Artist"
 msgstr "Artist"
@@ -2151,7 +2151,7 @@ msgstr "Här finns inget än"
 msgid "Added songs appear here."
 msgstr "Tillagda låtar visas här."
 
-#: src/ui/collection.rs:1500 src/ui/home.rs:727
+#: src/ui/collection.rs:1500 src/ui/home.rs:825
 msgid "Your top songs"
 msgstr "Dina topplåtar"
 
@@ -2460,45 +2460,45 @@ msgstr "Valfri beskrivning"
 msgid "Save"
 msgstr "Spara"
 
-#: src/ui/home.rs:243
+#: src/ui/home.rs:341
 msgid "Made for you"
 msgstr "Skapat för dig"
 
-#: src/ui/home.rs:272
+#: src/ui/home.rs:370
 msgid "Your top mixes"
 msgstr "Dina toppmixar"
 
 #. Translators: {owner} is the name of the playlist's owner.
-#: src/ui/home.rs:287 src/ui/search.rs:622
+#: src/ui/home.rs:385 src/ui/search.rs:622
 #, rust-format
 msgid "By {owner}"
 msgstr "Av {owner}"
 
-#: src/ui/home.rs:514
+#: src/ui/home.rs:612
 msgid "Your podcasts"
 msgstr "Dina poddar"
 
 #. Translators: {time} is the time left in an episode, such as 12 min; {show} is the podcast's name.
-#: src/ui/home.rs:520
+#: src/ui/home.rs:618
 #, rust-format
 msgid "{time} left • {show}"
 msgstr "{time} kvar • {show}"
 
 #. Translators: {show} is the podcast's name.
-#: src/ui/home.rs:529
+#: src/ui/home.rs:627
 #, rust-format
 msgid "New • {show}"
 msgstr "Nytt • {show}"
 
-#: src/ui/home.rs:577 src/ui/home.rs:587 src/ui/home.rs:602
+#: src/ui/home.rs:675 src/ui/home.rs:685 src/ui/home.rs:700
 msgid "Your top artists"
 msgstr "Dina toppartister"
 
-#: src/ui/home.rs:728
+#: src/ui/home.rs:826
 msgid "Show more top songs"
 msgstr "Visa fler topplåtar"
 
-#: src/ui/home.rs:742
+#: src/ui/home.rs:840
 msgid "Recommended for you"
 msgstr "Rekommenderat för dig"
 

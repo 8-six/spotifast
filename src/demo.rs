@@ -492,15 +492,34 @@ pub fn populate(app: &mut App) {
     // Home.
     app.home.requested = true;
     app.home.loaded_at = Some(Instant::now());
+    // Played from playlists, an album, Liked Songs, and on their own, as
+    // Spotify's history reports them, for Home's quick-access tiles.
+    let contexts = [
+        Some("spotify:playlist:pl1".to_string()),
+        Some("spotify:playlist:pl1".to_string()),
+        None,
+        Some("spotify:album:alb2".to_string()),
+        Some("spotify:user:demo:collection".to_string()),
+        Some("spotify:playlist:pl4".to_string()),
+        None,
+        Some("spotify:album:alb0".to_string()),
+        Some("spotify:playlist:pl6".to_string()),
+    ];
     app.home.recently_played = Loadable::Loaded(
         tracks
             .iter()
             .skip(5)
             .take(12)
-            .map(|track| PlayHistory {
+            .enumerate()
+            .map(|(index, track)| PlayHistory {
                 track: track.clone(),
                 played_at: Some("2026-08-26T21:12:00Z".into()),
-                context: None,
+                context: contexts.get(index).cloned().flatten().map(|uri| {
+                    crate::api::models::Context {
+                        kind: uri.split(':').nth(1).unwrap_or_default().to_string(),
+                        uri,
+                    }
+                }),
             })
             .collect(),
     );
