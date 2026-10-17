@@ -782,6 +782,13 @@ pub enum Command {
         saved: bool,
         generation: u64,
     },
+    /// Remove exactly these rows of a playlist through the streaming
+    /// session, leaving the song's other copies (#937). Answers as
+    /// `ApiResponse::PlaylistItemsChanged`.
+    RemovePlaylistRows {
+        playlist_id: String,
+        rows: Vec<session_reads::RemovedRow>,
+    },
     PrereleaseSaved {
         session_generation: u64,
         uri: String,
@@ -1026,6 +1033,8 @@ pub struct Backend {
     #[cfg(test)]
     library_cache_stores: std::sync::Mutex<Vec<crate::account_cache::Cache<Vec<Playlist>>>>,
     #[cfg(test)]
+    playlist_row_removals: std::sync::Mutex<Vec<(String, Vec<session_reads::RemovedRow>)>>,
+    #[cfg(test)]
     home_cache_stores:
         std::sync::Mutex<Vec<crate::account_cache::Cache<crate::model::HomeSnapshot>>>,
 }
@@ -1121,6 +1130,8 @@ impl Backend {
             #[cfg(test)]
             library_cache_stores: std::sync::Mutex::new(Vec::new()),
             #[cfg(test)]
+            playlist_row_removals: std::sync::Mutex::new(Vec::new()),
+            #[cfg(test)]
             home_cache_stores: std::sync::Mutex::new(Vec::new()),
         }
     }
@@ -1144,6 +1155,13 @@ impl Backend {
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .push(cache.clone());
+        }
+        #[cfg(test)]
+        if let Command::RemovePlaylistRows { playlist_id, rows } = &command {
+            self.playlist_row_removals
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push((playlist_id.clone(), rows.clone()));
         }
         #[cfg(test)]
         if let Command::StoreHomeCache(cache) = &command {
@@ -1272,6 +1290,18 @@ impl Backend {
                 ));
         }
         self.send(Command::Api(request));
+    }
+
+    #[cfg(test)]
+    pub(crate) fn take_playlist_row_removals(
+        &self,
+    ) -> Vec<(String, Vec<session_reads::RemovedRow>)> {
+        std::mem::take(
+            &mut *self
+                .playlist_row_removals
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        )
     }
 
     #[cfg(test)]
@@ -2447,6 +2477,9 @@ impl Worker {
                     saved,
                     generation,
                 } => self.set_prerelease_saved(uri, saved, generation),
+                Command::RemovePlaylistRows { playlist_id, rows } => {
+                    self.remove_playlist_rows(playlist_id, rows)
+                }
                 Command::PrereleaseSaved {
                     session_generation,
                     uri,
@@ -3959,6 +3992,46 @@ impl Worker {
                 });
             });
         }
+    }
+
+    fn remove_playlist_rows(&self, playlist_id: String, rows: Vec<session_reads::RemovedRow>) {
+        let answer = |id: String, result: Result<Option<String>, String>| {
+            Event::Api(Box::new(ApiResponse::PlaylistItemsChanged {
+                id,
+                message: "Removed from playlist".to_string(),
+                result: result.map_err(|message| ApiError::Status { status: 0, message }),
+            }))
+        };
+        // The Web API would remove every copy, so without the session the
+        // change is refused rather than made bigger than asked.
+        let Some(engine) = self.engine.clone().filter(|_| self.signed_in) else {
+            self.emit(answer(
+                playlist_id,
+                Err(
+                    "Removing one copy of a repeated song needs local playback. Try again when connected."
+                        .into(),
+                ),
+            ));
+            return;
+        };
+        let events = self.events.clone();
+        let waker = self.waker.clone();
+        let mut cancelled = self.session.subscribe();
+        tokio::spawn(async move {
+            let result = tokio::select! {
+                biased;
+                _ = cancelled.changed() => return,
+                result = tokio::time::timeout(
+                    RADIO_TIMEOUT,
+                    session_reads::remove_playlist_rows(engine.session(), &playlist_id, &rows),
+                ) => match result {
+                    Ok(result) => result.map_err(|error| format!("{error:#}")),
+                    Err(_) => Err("Spotify took too long to answer. Check the playlist and try again.".into()),
+                },
+            };
+            let _ = events.send(answer(playlist_id, result));
+            waker.wake();
+        });
     }
 
     fn set_prerelease_saved(&self, uri: String, saved: bool, generation: u64) {

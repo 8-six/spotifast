@@ -3559,6 +3559,8 @@ mod tests {
                                 shift: 0.0,
                                 picked: false,
                                 picked_songs: &[],
+                                picked_positions: &[],
+                                position: None,
                             },
                         );
                     }
@@ -3664,6 +3666,8 @@ mod tests {
                                     shift: 0.0,
                                     picked: false,
                                     picked_songs: &[],
+                                    picked_positions: &[],
+                                    position: None,
                                 },
                             );
                         });
@@ -3784,6 +3788,8 @@ mod tests {
                                 shift: 0.0,
                                 picked: false,
                                 picked_songs: &[],
+                                picked_positions: &[],
+                                position: None,
                             },
                         );
                     }
@@ -4375,7 +4381,7 @@ mod tests {
                         },
                         |ui| {
                             if multiple {
-                                crate::ui::widgets::picked_menu(ui, app, &songs, None);
+                                crate::ui::widgets::picked_menu(ui, app, &songs, &[], None);
                             } else {
                                 crate::ui::widgets::item_menu(ui, app, &songs[0], None, None);
                             }
@@ -4449,7 +4455,7 @@ mod tests {
                 },
                 |ui| {
                     if show_parent {
-                        crate::ui::widgets::picked_menu(ui, app, &songs, None);
+                        crate::ui::widgets::picked_menu(ui, app, &songs, &[], None);
                     }
                 },
             );
@@ -4521,7 +4527,7 @@ mod tests {
                     events,
                     ..Default::default()
                 },
-                |ui| crate::ui::widgets::picked_menu(ui, app, &songs, None),
+                |ui| crate::ui::widgets::picked_menu(ui, app, &songs, &[], None),
             );
             output.textures_delta.clear();
             output.platform_output.accesskit_update.unwrap()
@@ -4706,6 +4712,8 @@ mod tests {
                         shift: 0.0,
                         picked: false,
                         picked_songs: &[],
+                        picked_positions: &[],
+                        position: None,
                     },
                 );
             }
@@ -9712,7 +9720,7 @@ mod tests {
             pointer_click(remove, egui::PointerButton::Primary),
         );
         assert!(
-            matches!(app.actions.as_slice(), [Action::RemoveFromPlaylist { playlist_id, uris }] if playlist_id == "pl1" && uris == std::slice::from_ref(&uri))
+            matches!(app.actions.as_slice(), [Action::RemoveFromPlaylist { playlist_id, uris, .. }] if playlist_id == "pl1" && uris == std::slice::from_ref(&uri))
         );
         // A view without edit rights offers no removal at all.
         let readonly = RowContext::View {
@@ -9747,6 +9755,7 @@ mod tests {
                         ui,
                         app,
                         songs,
+                        &[],
                         Some(&("pl1".to_string(), None)),
                     );
                 },
@@ -9770,7 +9779,7 @@ mod tests {
         );
         let expected: Vec<String> = songs.iter().map(|song| song.uri().to_string()).collect();
         assert!(
-            matches!(app.actions.as_slice(), [Action::RemoveFromPlaylist { playlist_id, uris }] if playlist_id == "pl1" && *uris == expected)
+            matches!(app.actions.as_slice(), [Action::RemoveFromPlaylist { playlist_id, uris, .. }] if playlist_id == "pl1" && *uris == expected)
         );
         app.backend.shutdown();
     }

@@ -277,6 +277,147 @@ async fn write_collection(
     Ok(())
 }
 
+/// One playlist row picked for removal: its song, its position among the
+/// rows the app holds, and how many copies of the song sit before it there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RemovedRow {
+    pub uri: String,
+    pub position: u32,
+    pub copy: u32,
+}
+
+/// Removes exactly the picked rows, so the other copies of a song a list
+/// holds more than once stay, with their dates (#937). The Web API removes
+/// by URI, every copy at once, and ignores positions; the playlist service
+/// Spotify's own clients edit removes by index. The indices come from the
+/// list as it stands now, and the change is based on that revision, so a
+/// list edited meanwhile refuses it rather than losing another row. Returns
+/// the new snapshot when Spotify reports it.
+pub async fn remove_playlist_rows(
+    session: &Session,
+    id: &str,
+    rows: &[RemovedRow],
+) -> anyhow::Result<Option<String>> {
+    const CHANGED: &str = "The playlist changed meanwhile. Check it and try again.";
+    let (revision, uris) = playlist_uris(session, id).await?;
+    let indices = removal_indices(&uris, rows).ok_or_else(|| anyhow::anyhow!(CHANGED))?;
+    let changes = removal_changes(
+        &revision,
+        &session.username(),
+        jiff::Timestamp::now().as_millisecond(),
+        &indices,
+    );
+    // librespot sends a change once: it is not idempotent.
+    let bytes = session
+        .spclient()
+        .post_playlist_changes(&SpotifyId::from_base62(id)?, &changes)
+        .await
+        .map_err(|error| match error.kind {
+            ErrorKind::Aborted => anyhow::anyhow!(CHANGED),
+            _ => anyhow::anyhow!("Spotify did not remove the song: {error}"),
+        })?;
+    Ok(SelectedListContent::parse_from_bytes(&bytes)
+        .ok()
+        .map(|answer| answer.revision().to_vec())
+        .filter(|revision| !revision.is_empty())
+        .map(|revision| snapshot(&revision)))
+}
+
+/// The list's revision and every row's URI, read page by page from the
+/// same revision.
+async fn playlist_uris(session: &Session, id: &str) -> anyhow::Result<(Vec<u8>, Vec<String>)> {
+    const PAGE: u32 = 1000;
+    let failed = |failure: Failure| match failure {
+        Failure::Definitive(error) => anyhow::anyhow!("{error}"),
+        Failure::Retry(error) => error,
+    };
+    let mut revision = None;
+    let mut uris = Vec::new();
+    loop {
+        let from = uris.len() as u32;
+        let list = window(session, id, from, PAGE).await.map_err(failed)?;
+        match &revision {
+            None => revision = Some(list.revision.clone()),
+            Some(first) => anyhow::ensure!(
+                *first == list.revision,
+                "The playlist changed meanwhile. Check it and try again."
+            ),
+        }
+        let page = rows(&list, from, PAGE);
+        uris.extend(page.iter().map(|row| row.id.to_uri()));
+        if page.is_empty() || uris.len() as u32 >= total(&list) {
+            break;
+        }
+    }
+    Ok((revision.unwrap_or_default(), uris))
+}
+
+/// Where each picked row sits in `uris`, the list as Spotify holds it: at
+/// its own position when that row holds its song, as when every row before
+/// it is one both sources count, or else the same copy of the song counted
+/// from the start. `None` when a row is not there any more, so nothing is
+/// removed on a guess. Highest index first, so each removal leaves the
+/// indices of the next ones in place.
+fn removal_indices(uris: &[String], rows: &[RemovedRow]) -> Option<Vec<(u32, String)>> {
+    let mut indices = rows
+        .iter()
+        .map(|row| {
+            let at = row.position as usize;
+            let index = if uris.get(at) == Some(&row.uri) {
+                at
+            } else {
+                uris.iter()
+                    .enumerate()
+                    .filter(|(_, uri)| **uri == row.uri)
+                    .nth(row.copy as usize)?
+                    .0
+            };
+            Some((u32::try_from(index).ok()?, row.uri.clone()))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    indices.sort_by_key(|(index, _)| std::cmp::Reverse(*index));
+    indices.dedup_by_key(|(index, _)| *index);
+    Some(indices)
+}
+
+/// One change that removes each `(index, uri)` row on its own, highest
+/// index first. Naming the row's song lets Spotify refuse a row that does
+/// not hold it; `items_as_key` stays unset, since it would remove every
+/// copy of the song instead of the row.
+fn removal_changes(
+    revision: &[u8],
+    user: &str,
+    timestamp_ms: i64,
+    indices: &[(u32, String)],
+) -> librespot_protocol::playlist4_external::ListChanges {
+    use librespot_protocol::playlist4_external::{ChangeInfo, Delta, ListChanges, Op, Rem, op};
+    let ops = indices
+        .iter()
+        .map(|(index, uri)| {
+            let mut item = Item::new();
+            item.set_uri(uri.clone());
+            let mut rem = Rem::new();
+            rem.set_from_index(*index as i32);
+            rem.set_length(1);
+            rem.items.push(item);
+            let mut op = Op::new();
+            op.set_kind(op::Kind::REM);
+            op.rem = protobuf::MessageField::some(rem);
+            op
+        })
+        .collect();
+    let mut info = ChangeInfo::new();
+    info.set_user(user.to_string());
+    info.set_timestamp(timestamp_ms);
+    let mut delta = Delta::new();
+    delta.ops = ops;
+    delta.info = protobuf::MessageField::some(info);
+    let mut changes = ListChanges::new();
+    changes.set_base_revision(revision.to_vec());
+    changes.deltas.push(delta);
+    changes
+}
+
 /// A playlist's header: name, owner, cover, and snapshot.
 pub async fn playlist(session: &Session, id: &str) -> Result<Playlist, Failure> {
     let list = window(session, id, 0, 0).await?;
@@ -1077,6 +1218,84 @@ mod tests {
 
     const TRACK: &str = "spotify:track:4uLU6hMCjMI75M1A2tKUQC";
     const EPISODE: &str = "spotify:episode:7GhIk7Il098yCjg4BQjzvb";
+
+    fn removed(uri: &str, position: u32, copy: u32) -> RemovedRow {
+        RemovedRow {
+            uri: uri.into(),
+            position,
+            copy,
+        }
+    }
+
+    /// The picked copy is the row removed, never the first copy (#937).
+    #[test]
+    fn removal_finds_the_picked_copy_of_a_repeated_song() {
+        let list: Vec<String> = ["a", "b", "a", "c", "a"].map(String::from).to_vec();
+        assert_eq!(
+            removal_indices(&list, &[removed("a", 2, 1)]),
+            Some(vec![(2, "a".into())])
+        );
+        // Spotify's list holds a row the app's did not count before it, so
+        // the copy is found by its place among the song's copies instead.
+        assert_eq!(
+            removal_indices(&list, &[removed("a", 3, 2)]),
+            Some(vec![(4, "a".into())])
+        );
+        // Several rows come back highest first, each once.
+        assert_eq!(
+            removal_indices(
+                &list,
+                &[removed("a", 0, 0), removed("c", 3, 0), removed("a", 4, 2)]
+            ),
+            Some(vec![(4, "a".into()), (3, "c".into()), (0, "a".into())])
+        );
+        // A copy no longer there removes nothing.
+        assert_eq!(removal_indices(&list, &[removed("a", 9, 3)]), None);
+        assert_eq!(
+            removal_indices(&list, &[removed("b", 1, 0), removed("d", 5, 0)]),
+            None
+        );
+    }
+
+    #[test]
+    fn removal_changes_remove_rows_by_index_against_the_revision() {
+        let changes = removal_changes(
+            b"revision",
+            "dummy-user",
+            1_700_000_000_000,
+            &[(4, "a".into()), (0, "a".into())],
+        );
+        let decoded = librespot_protocol::playlist4_external::ListChanges::parse_from_bytes(
+            &changes.write_to_bytes().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(decoded.base_revision(), b"revision");
+        let [delta] = decoded.deltas.as_slice() else {
+            panic!("one change");
+        };
+        assert_eq!(delta.info.user(), "dummy-user");
+        assert_eq!(delta.info.timestamp(), 1_700_000_000_000);
+        let removals: Vec<(i32, i32, Vec<&str>, bool)> = delta
+            .ops
+            .iter()
+            .map(|op| {
+                assert_eq!(
+                    op.kind(),
+                    librespot_protocol::playlist4_external::op::Kind::REM
+                );
+                (
+                    op.rem.from_index(),
+                    op.rem.length(),
+                    op.rem.items.iter().map(|item| item.uri()).collect(),
+                    op.rem.has_items_as_key(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            removals,
+            vec![(4, 1, vec!["a"], false), (0, 1, vec!["a"], false)]
+        );
+    }
 
     /// Another market's ranking must not replace the account's own or worldwide list.
     #[test]

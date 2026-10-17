@@ -609,3 +609,16 @@ credentials. Failed confirmation leaves state unknown and offers a fresh read;
 it never automatically repeats a mutation. Requests have a 20-second deadline.
 Sign-out cancels work, stale session/page generations are ignored, and a new
 link or history navigation cannot be overwritten by an older response.
+
+## Removing one copy of a repeated song
+
+Removing a song from a playlist uses the Web API's `DELETE
+/playlists/{id}/items`, which removes every copy of the song. When the
+playlist holds the removed song more than once, Spotifast instead reads the
+playlist's rows and revision over the session (`/playlist/v2/playlist/{id}`)
+and sends one `/playlist/v2/playlist/{id}/changes` request through librespot
+that removes the picked rows by index, based on that revision, with the
+session's own authorization. Spotify refuses the change if the playlist
+changed since. The request is sent once, never retried, and has a 20-second
+deadline. A row that is no longer
+in the playlist removes nothing; the playlist reloads and shows the error.

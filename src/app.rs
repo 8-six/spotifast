@@ -9385,6 +9385,85 @@ impl App {
         }
     }
 
+    /// The picked rows to remove one by one, when the removal includes a
+    /// song the loaded rows hold more than once: by URI, Spotify would
+    /// remove every copy (#937). Only rows whose positions are exact count:
+    /// the rows load from the start and each position holds its song.
+    fn repeated_rows_to_remove(
+        &self,
+        playlist_id: &str,
+        uris: &[String],
+        positions: &[u32],
+    ) -> Option<Vec<crate::session_reads::RemovedRow>> {
+        let items = &self.playlist_pages.get(playlist_id)?.items;
+        if positions.is_empty() || positions.len() != uris.len() || items.base_offset != 0 {
+            return None;
+        }
+        let holds = |row: &crate::api::models::PlaylistItem, uri: &str| {
+            row.playable().is_some_and(|item| item.uri() == uri)
+        };
+        let repeated = uris
+            .iter()
+            .any(|uri| items.items.iter().filter(|row| holds(row, uri)).count() > 1);
+        if !repeated {
+            return None;
+        }
+        uris.iter()
+            .zip(positions)
+            .map(|(uri, &position)| {
+                let row = items.items.get(position as usize)?;
+                holds(row, uri).then(|| crate::session_reads::RemovedRow {
+                    uri: uri.clone(),
+                    position,
+                    copy: items.items[..position as usize]
+                        .iter()
+                        .filter(|row| holds(row, uri))
+                        .count() as u32,
+                })
+            })
+            .collect()
+    }
+
+    /// Removes exactly `rows` from the screen now and from Spotify through
+    /// the session; the answer is the usual playlist change.
+    fn remove_playlist_rows(
+        &mut self,
+        playlist_id: String,
+        mut rows: Vec<crate::session_reads::RemovedRow>,
+    ) {
+        rows.sort_by_key(|row| std::cmp::Reverse(row.position));
+        rows.dedup_by_key(|row| row.position);
+        self.prepare_playlist_mutation(&playlist_id);
+        if let Some(page) = self.playlist_pages.get_mut(&playlist_id) {
+            for row in &rows {
+                if (row.position as usize) < page.items.items.len() {
+                    page.items.items.remove(row.position as usize);
+                }
+            }
+            page.items.revision = page.items.revision.wrapping_add(1);
+            let removed = rows.len() as u32;
+            let items = &page.items.items;
+            page.local_additions.retain(|uri| {
+                items
+                    .iter()
+                    .any(|row| row.playable().is_some_and(|item| item.uri() == uri))
+            });
+            page.items.total = page.items.total.map(|total| total.saturating_sub(removed));
+            page.items.next_offset = page
+                .items
+                .next_offset
+                .map(|offset| offset.saturating_sub(removed));
+            if let Loadable::Loaded(playlist) = &mut page.playlist
+                && let Some(count) = playlist.items_count.as_mut().or(playlist.tracks.as_mut())
+            {
+                count.total = count.total.saturating_sub(removed);
+            }
+        }
+        self.playlist_busy = true;
+        self.backend
+            .send(Command::RemovePlaylistRows { playlist_id, rows });
+    }
+
     fn prepare_playlist_mutation(&mut self, id: &str) {
         let Some(page) = self.playlist_pages.get_mut(id) else {
             return;
@@ -10104,7 +10183,15 @@ impl App {
             } => {
                 self.add_to_playlist_now(playlist_id, playlist_name, items, position);
             }
-            Action::RemoveFromPlaylist { playlist_id, uris } => {
+            Action::RemoveFromPlaylist {
+                playlist_id,
+                uris,
+                positions,
+            } => {
+                if let Some(rows) = self.repeated_rows_to_remove(&playlist_id, &uris, &positions) {
+                    self.remove_playlist_rows(playlist_id, rows);
+                    return;
+                }
                 let snapshot_id = self
                     .playlist_pages
                     .get(&playlist_id)
@@ -24342,6 +24429,7 @@ mod tests {
             Action::RemoveFromPlaylist {
                 playlist_id: "edit".into(),
                 uris: vec!["spotify:track:remove".into()],
+                positions: vec![0],
             },
             &egui::Context::default(),
         );
@@ -24359,6 +24447,107 @@ mod tests {
                 .total,
             1
         );
+    }
+
+    fn playlist_with_rows(app: &mut App, uris: &[&str]) {
+        let mut items = PagedList::default();
+        items.restore_cached(
+            uris.iter().map(|uri| cached_playlist_row(uri)).collect(),
+            uris.len() as u32,
+            None,
+        );
+        app.playlist_pages.insert(
+            "edit".into(),
+            PlaylistPage {
+                items,
+                playlist: Loadable::Loaded(Playlist {
+                    items_count: Some(TrackCount {
+                        total: uris.len() as u32,
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        );
+    }
+
+    fn row_uris(app: &App) -> Vec<String> {
+        app.playlist_pages["edit"]
+            .items
+            .items
+            .iter()
+            .map(|row| row.playable().unwrap().uri().to_string())
+            .collect()
+    }
+
+    /// Removing one copy of a song the list holds twice removes that row
+    /// alone, on screen at once and through the session's by-index change,
+    /// never by URI, which would take every copy (#937).
+    #[test]
+    fn removing_one_copy_of_a_repeated_song_keeps_the_other() {
+        let mut app = headless_app();
+        app.backend.set_offline(true);
+        playlist_with_rows(
+            &mut app,
+            &[
+                "spotify:track:twice",
+                "spotify:track:keep",
+                "spotify:track:twice",
+            ],
+        );
+        app.apply(
+            Action::RemoveFromPlaylist {
+                playlist_id: "edit".into(),
+                uris: vec!["spotify:track:twice".into()],
+                positions: vec![2],
+            },
+            &egui::Context::default(),
+        );
+        assert_eq!(
+            row_uris(&app),
+            ["spotify:track:twice", "spotify:track:keep"]
+        );
+        let page = &app.playlist_pages["edit"];
+        assert_eq!(page.items.total, Some(2));
+        assert_eq!(page.pending_writes, 1);
+        assert_eq!(
+            app.backend.take_playlist_row_removals(),
+            [(
+                "edit".to_string(),
+                vec![crate::session_reads::RemovedRow {
+                    uri: "spotify:track:twice".into(),
+                    position: 2,
+                    copy: 1,
+                }]
+            )]
+        );
+    }
+
+    /// A song held once, or a removal whose rows are unknown or do not hold
+    /// the song, keeps the Web API's removal by URI.
+    #[test]
+    fn removing_without_a_repeated_known_row_still_removes_by_uri() {
+        let once = "spotify:track:once";
+        let twice = "spotify:track:twice";
+        for (uri, positions, left) in [
+            (once, vec![0], vec![twice, twice]),
+            (twice, vec![], vec![once]),
+            (twice, vec![0], vec![once]),
+        ] {
+            let mut app = headless_app();
+            app.backend.set_offline(true);
+            playlist_with_rows(&mut app, &[once, twice, twice]);
+            app.apply(
+                Action::RemoveFromPlaylist {
+                    playlist_id: "edit".into(),
+                    uris: vec![uri.into()],
+                    positions,
+                },
+                &egui::Context::default(),
+            );
+            assert_eq!(row_uris(&app), left);
+            assert!(app.backend.take_playlist_row_removals().is_empty());
+        }
     }
 
     #[test]

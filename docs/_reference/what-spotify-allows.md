@@ -70,6 +70,13 @@ clients. Spotifast uses its session for:
   cover, description, or songs. Spotifast reads each one's header over the
   session once per sign-in to fill its row. Without local playback those
   rows stay blank.
+- **Removing one copy of a repeated song.** The Web API removes a song from
+  a playlist by URI, every copy at once, and ignores positions. When a list
+  holds a song more than once and one copy is removed, Spotifast reads the
+  list over the session and removes that row by index through the playlist
+  service Spotify's own clients edit, so the other copies keep their place
+  and dates. Without local playback it refuses that removal instead of taking
+  every copy.
 - **Lyrics** when Spotify has them.
 - **Artist popular tracks.** The account's market-specific ranking and batched
   track details, with the shared Web API as fallback when the session cannot
