@@ -817,6 +817,22 @@ pub fn shows_in_dock(setting: bool, menu_bar_item: bool) -> bool {
     setting || !menu_bar_item
 }
 
+/// The tray icon's rendition for the Tray icon setting (#128). The macOS
+/// menu bar keeps the template image, which it already draws black or white
+/// to match itself, so the setting is not offered there.
+fn tray_icon_colour(choice: crate::settings::TrayIcon) -> fastframe_tray::IconColour {
+    use crate::settings::TrayIcon;
+    use fastframe_tray::IconColour;
+    if cfg!(target_os = "macos") {
+        return IconColour::Original;
+    }
+    match choice {
+        TrayIcon::Colour => IconColour::Original,
+        TrayIcon::White => IconColour::White,
+        TrayIcon::Black => IconColour::Black,
+    }
+}
+
 /// The tray item: Spotifast's icon, and a menu that shows or hides the
 /// window, controls playback and quits.
 fn tray_config() -> fastframe_tray::Config {
@@ -923,10 +939,13 @@ impl App {
             media_controls
         };
         let wake = waker.clone();
-        let tray = options
+        let mut tray = options
             .tray
             .then(|| fastframe_tray::Tray::spawn(tray_config(), move || wake.wake()))
             .flatten();
+        if let Some(tray) = &mut tray {
+            tray.set_icon_colour(tray_icon_colour(settings.tray_icon));
+        }
         let power = if options.media_controls {
             let wake = waker.clone();
             crate::power::Power::spawn(move || wake.wake())
@@ -4352,6 +4371,10 @@ impl App {
         {
             self.tray_playing = playing;
             tray.set_label(TRAY_PLAY_PAUSE, play_pause_label(playing));
+        }
+        if let Some(tray) = &mut self.tray {
+            // Changes the item only when the setting did.
+            tray.set_icon_colour(tray_icon_colour(self.settings.tray_icon));
         }
         #[cfg(target_os = "macos")]
         crate::mac_menu::set_playing(playing);
@@ -19798,6 +19821,24 @@ mod tests {
     ) {
         app.custom_themes = theme::Catalog::preview(theme.into_iter().collect(), follows);
         app.adopt_custom_themes(ctx);
+    }
+
+    /// The Tray icon setting picks the tray's rendition on Linux and
+    /// Windows, Colour being today's icon; the macOS menu bar keeps its
+    /// template image whatever the file says (#128).
+    #[test]
+    fn the_tray_icon_setting_picks_the_rendition_except_on_macos() {
+        use crate::settings::TrayIcon;
+        use fastframe_tray::IconColour;
+        let renditions = [TrayIcon::Colour, TrayIcon::White, TrayIcon::Black].map(tray_icon_colour);
+        if cfg!(target_os = "macos") {
+            assert_eq!(renditions, [IconColour::Original; 3]);
+        } else {
+            assert_eq!(
+                renditions,
+                [IconColour::Original, IconColour::White, IconColour::Black]
+            );
+        }
     }
 
     /// Closing hides to the tray only when the tray can take the app, and

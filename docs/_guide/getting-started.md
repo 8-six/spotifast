@@ -39,6 +39,9 @@ You can rename it in Settings.
   turn this off, and on macOS can keep Spotifast out of the Dock, in the menu
   bar only. On Linux, including Flatpak, a desktop with a working system
   tray is required for this behavior.
+- **The tray icon can match your panel.** On Linux and Windows, **Settings >
+  Playback on this computer > Tray icon** shows it in colour, white or black.
+  The macOS menu bar already draws it black or white to match itself.
 - **Play and Pause fade.** With the default audio settings, music played on
   this computer fades in or out to avoid a hard cut.
 - **Play buttons show progress.** The button spins until Spotify responds.

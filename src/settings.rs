@@ -47,6 +47,18 @@ pub enum ThemeChoice {
     System,
 }
 
+/// How the tray icon is drawn on Linux and Windows: in colour, or white or
+/// black to match the panel. The macOS menu bar always gets the template
+/// image, which it draws black or white to match itself.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrayIcon {
+    #[default]
+    Colour,
+    White,
+    Black,
+}
+
 /// Whether a Home shelf is drawn. Hidden shelves still refresh normally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -315,6 +327,8 @@ pub struct Settings {
     pub playback_authorized: bool,
     /// Closing the window hides to the tray and keeps the music playing.
     pub keep_playing_in_background: bool,
+    /// Linux and Windows: the tray icon in colour, white or black (#128).
+    pub tray_icon: TrayIcon,
     /// Show the interactive Now Playing widget when hovering over the MacBook notch.
     pub mac_notch_widget: bool,
     /// macOS: keep Spotifast in the Dock and Cmd-Tab. Off makes it a
@@ -479,6 +493,7 @@ impl Default for Settings {
             personal_app_intro_seen: false,
             playback_authorized: false,
             keep_playing_in_background: true,
+            tray_icon: TrayIcon::Colour,
             mac_notch_widget: false,
             mac_show_in_dock: true,
             check_for_updates: true,
@@ -1339,6 +1354,29 @@ mod tests {
             milkdrop_only.visualizer_fps, 60,
             "MilkDrop's rate is its own"
         );
+    }
+
+    /// Older files keep today's colour icon, and the choice round-trips as
+    /// a lowercase word (#128).
+    #[test]
+    fn the_tray_icon_stays_in_colour_unless_chosen_and_round_trips() {
+        use super::TrayIcon;
+        let settings: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(settings.tray_icon, TrayIcon::Colour);
+        for (choice, word) in [
+            (TrayIcon::Colour, "colour"),
+            (TrayIcon::White, "white"),
+            (TrayIcon::Black, "black"),
+        ] {
+            let json = serde_json::to_value(Settings {
+                tray_icon: choice,
+                ..Settings::default()
+            })
+            .unwrap();
+            assert_eq!(json["tray_icon"], word);
+            let restored: Settings = serde_json::from_value(json).unwrap();
+            assert_eq!(restored.tray_icon, choice);
+        }
     }
 
     #[test]

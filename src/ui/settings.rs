@@ -709,6 +709,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             ),
         )
         .when(cfg!(target_os = "macos")),
+        // The macOS menu bar already draws its icon black or white to match.
+        RowText::new(
+            gettext(locale, "Tray icon"),
+            gettext(locale, "White or black can match your panel or taskbar."),
+        )
+        .when(!cfg!(target_os = "macos")),
     ];
     if section_matches(&needle, &playback, &playback_rows) {
         any_visible = true;
@@ -859,6 +865,61 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     changed = true;
                 }
             });
+            {
+                use crate::settings::TrayIcon;
+                let choices = [
+                    (TrayIcon::Colour, pgettext(locale, "tray icon", "Colour")),
+                    (TrayIcon::White, pgettext(locale, "tray icon", "White")),
+                    (TrayIcon::Black, pgettext(locale, "tray icon", "Black")),
+                ];
+                let choice_gap = 6.0;
+                let choices_width = choices
+                    .iter()
+                    .map(|(_, label)| theme::soft_button_width(ui, label))
+                    .sum::<f32>()
+                    + choice_gap * (choices.len() - 1) as f32;
+                filtered_row_sized(
+                    ui,
+                    &palette,
+                    &needle,
+                    &playback,
+                    &playback_rows[17],
+                    choices_width,
+                    |ui| {
+                        let mut choose = |ui: &mut egui::Ui, icon: TrayIcon, label: &str| {
+                            if theme::soft_button(
+                                ui,
+                                &palette,
+                                None,
+                                label,
+                                app.settings.tray_icon == icon,
+                            )
+                            .clicked()
+                                && app.settings.tray_icon != icon
+                            {
+                                app.settings.tray_icon = icon;
+                                changed = true;
+                            }
+                        };
+                        if ui.available_width() >= choices_width {
+                            // Laid right to left, so the last choice goes first.
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing.x = choice_gap;
+                                for (icon, label) in choices.iter().rev() {
+                                    choose(ui, *icon, label);
+                                }
+                            });
+                        } else {
+                            ui.with_layout(Layout::top_down(Align::Max), |ui| {
+                                ui.spacing_mut().item_spacing.y = choice_gap;
+                                for (icon, label) in &choices {
+                                    choose(ui, *icon, label);
+                                }
+                            });
+                        }
+                    },
+                );
+            }
             #[cfg(target_os = "macos")]
             filtered_row(ui, &palette, &needle, &playback, &playback_rows[14], |ui| {
                 if widgets::switch(
