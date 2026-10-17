@@ -299,6 +299,43 @@ fn page<T>(items: Vec<T>) -> ApiPage<T> {
     }
 }
 
+#[cfg(feature = "demo")]
+const DEMO_LOCAL_FOUND: &str = "spotify:local:Demo+Artist:Home+Recordings:Kitchen+Demo:184";
+#[cfg(feature = "demo")]
+const DEMO_LOCAL_MISSING: &str = "spotify:local:Demo+Artist:Home+Recordings:Lost+Take:203";
+
+/// Makes the third and fifth rows of `playlist:pl1` local files.
+#[cfg(feature = "demo")]
+fn demo_local_rows(app: &mut App) {
+    let Some(page) = app.playlist_pages.get_mut("pl1") else {
+        return;
+    };
+    for (row, uri, title, ms) in [
+        (2, DEMO_LOCAL_FOUND, "Kitchen Demo", 184_000),
+        (4, DEMO_LOCAL_MISSING, "Lost Take", 203_000),
+    ] {
+        if let Some(item) = page.items.items.get_mut(row) {
+            item.is_local = true;
+            item.item = Some(PlayableItem::Track(Track {
+                uri: uri.into(),
+                name: title.into(),
+                is_local: true,
+                duration_ms: ms,
+                artists: vec![crate::api::models::ArtistRef {
+                    name: "Demo Artist".into(),
+                    ..Default::default()
+                }],
+                album: Some(crate::api::models::Album {
+                    name: "Home Recordings".into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }));
+        }
+    }
+    page.items.revision = page.items.revision.wrapping_add(1);
+}
+
 /// Populates the offline app with cards for screenshots and UI tests.
 pub fn populate(app: &mut App) {
     app.backend.set_offline(true);
@@ -1117,6 +1154,20 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                     Action::ShufflePlay("spotify:playlist:pl0".into()),
                     &egui::Context::default(),
                 );
+            }
+            // Two local files in `playlist:pl1`, its third and fifth rows,
+            // and no local files folder: both are unavailable.
+            "local-rows" => demo_local_rows(app),
+            // The same rows, and a local files folder of 128 songs that holds
+            // the third row's file but not the fifth's.
+            "local-files" => {
+                demo_local_rows(app);
+                app.settings.local_files_folder = Some("/home/you/Music".into());
+                let mut uris: std::collections::HashSet<String> = (0..127)
+                    .map(|n| format!("spotify:local:Demo:Demo:Song+{n}:180"))
+                    .collect();
+                uris.insert(crate::app::local_file_key(DEMO_LOCAL_FOUND));
+                app.local_files = Some(("/home/you/Music".into(), std::sync::Arc::new(uris)));
             }
             "rtl" => {
                 if let Some(page) = app.playlist_pages.get_mut("pl1") {
@@ -4874,6 +4925,25 @@ mod tests {
 
     /// `--demo-show rtl` fills the playlist with right-to-left titles, which
     /// the page hands to layout in the order they were typed.
+    /// A local file the folder holds plays; one it does not hold, or any
+    /// local file without a folder, stays unavailable (#3).
+    #[cfg(feature = "demo")]
+    #[test]
+    fn local_rows_play_only_from_the_folder() {
+        let rows = |app: &App| -> Vec<bool> {
+            app.playlist_pages["pl1"].items.items[..5]
+                .iter()
+                .map(|row| app.row_playable(row.playable().unwrap()))
+                .collect()
+        };
+        let (_, mut app) = accessible_app("local-rows");
+        apply_flags(&mut app, Some("playlist:pl1"), Some("local-rows"));
+        assert_eq!(rows(&app), [true, true, false, true, false]);
+        let (_, mut app) = accessible_app("local-files");
+        apply_flags(&mut app, Some("playlist:pl1"), Some("local-files"));
+        assert_eq!(rows(&app), [true, true, true, true, false]);
+    }
+
     #[cfg(feature = "demo")]
     #[test]
     fn the_rtl_demo_shows_right_to_left_titles() {

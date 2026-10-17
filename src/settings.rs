@@ -250,6 +250,9 @@ pub struct Settings {
     pub audio_buffer_ms: u32,
     pub audio_cache: bool,
     pub audio_cache_mb: u64,
+    /// The folder, searched with its subfolders, that a playlist's
+    /// `spotify:local:` songs play from; `None` plays none.
+    pub local_files_folder: Option<String>,
     pub theme: ThemeChoice,
     /// The interface language; older files without it follow the system.
     pub language: LanguageChoice,
@@ -442,6 +445,7 @@ impl Default for Settings {
             gapless: true,
             audio_backend: None,
             audio_device: None,
+            local_files_folder: None,
             audio_buffer_ms: default_buffer_ms(),
             audio_cache: true,
             audio_cache_mb: 1024,
@@ -524,6 +528,14 @@ fn default_buffer_ms() -> u32 {
 }
 
 impl Settings {
+    /// The local files folder, when one is set.
+    pub fn local_files_folder(&self) -> Option<std::path::PathBuf> {
+        self.local_files_folder
+            .as_deref()
+            .filter(|folder| !folder.trim().is_empty())
+            .map(std::path::PathBuf::from)
+    }
+
     pub(crate) fn cached_palette(&self) -> Option<crate::theme::Palette> {
         let theme = if self.custom_theme.is_some() {
             self.custom_theme_cache.as_ref()

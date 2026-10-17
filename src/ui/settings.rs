@@ -330,6 +330,33 @@ fn section(
     ui.add_space(8.0);
 }
 
+/// What the local files row says: the folder and how many songs it holds,
+/// or what a folder is for.
+fn local_files_detail(app: &App) -> String {
+    let locale = app.locale;
+    let Some(folder) = app.settings.local_files_folder() else {
+        return gettext(
+            locale,
+            "Play the local files your playlists list from a folder on this computer. Only 44.1 kHz files play.",
+        )
+        .into_owned();
+    };
+    let folder = folder.display().to_string();
+    match &app.local_files {
+        Some((_, uris)) => ngettext(
+            locale,
+            // Translators: {count} is a number of songs, {folder} a folder on this computer.
+            "{count} song in {folder}",
+            "{count} songs in {folder}",
+            uris.len() as u32,
+        )
+        .replace("{count}", &uris.len().to_string())
+        .replace("{folder}", &folder),
+        // Translators: {folder} is a folder on this computer.
+        None => gettext(locale, "Looking for songs in {folder}…").replace("{folder}", &folder),
+    }
+}
+
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let locale = app.locale;
@@ -672,6 +699,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             ),
         )
         .when(cfg!(target_os = "macos")),
+        RowText::new(gettext(locale, "Local files"), local_files_detail(app)),
     ];
     if section_matches(&needle, &playback, &playback_rows) {
         any_visible = true;
@@ -888,6 +916,52 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     }
                 });
             });
+            let choose_folder = gettext(locale, "Choose folder");
+            let remove_folder = gettext(locale, "Remove");
+            let has_folder = app.settings.local_files_folder().is_some();
+            // Pill buttons are a little wider than soft ones; the open
+            // button carries an icon. Narrow windows put them under the text.
+            let pill_width = |label: &str| theme::soft_button_width(ui, label) + 16.0;
+            let folder_controls_width = pill_width(&choose_folder)
+                + if has_folder {
+                    pill_width(&remove_folder)
+                        + theme::soft_button_width(ui, &open_folder)
+                        + 22.0
+                        + 12.0
+                } else {
+                    0.0
+                };
+            filtered_row_sized(
+                ui,
+                &palette,
+                &needle,
+                &playback,
+                &playback_rows[15],
+                folder_controls_width,
+                |ui| {
+                    // The control area lays out right-to-left: add the rightmost item first.
+                    ui.spacing_mut().item_spacing.x = 6.0;
+                    if has_folder {
+                        if theme::pill_button(ui, &palette, &remove_folder, false).clicked() {
+                            app.actions.push(Action::ForgetLocalFilesFolder);
+                        }
+                        if theme::soft_button(
+                            ui,
+                            &palette,
+                            Some(Icon::ExternalLink),
+                            &open_folder,
+                            false,
+                        )
+                        .clicked()
+                        {
+                            app.actions.push(Action::OpenLocalFilesFolder);
+                        }
+                    }
+                    if theme::pill_button(ui, &palette, &choose_folder, false).clicked() {
+                        app.actions.push(Action::ChooseLocalFilesFolder);
+                    }
+                },
+            );
             filtered_row(ui, &palette, &needle, &playback, &playback_rows[10], |ui| {
                 // The control area lays out right-to-left: add the rightmost item first.
                 ui.horizontal(|ui| {

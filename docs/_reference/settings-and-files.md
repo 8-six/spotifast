@@ -281,6 +281,7 @@ main fields are:
 | `audio_backend` | platform | `pulseaudio` or `rodio` on Linux. `rodio` is Spotifast's own output, through ALSA; librespot's separate rodio backend is no longer built in, and a backend this build lacks plays through Spotifast's own output |
 | `audio_device` | `null` | The output local playback uses, by the name **Audio output** in the device picker lists; `null` is the system default. A device that is not there plays through the default. With the `pulseaudio` backend it names a PulseAudio sink instead, and the picker does not list outputs |
 | `audio_cache_mb` | `1024` | On-disk audio cache budget |
+| `local_files_folder` | `null` | Folder, with its subfolders, that a playlist's local files play from |
 | `theme` | `system` | Follow the system appearance by default; explicit `dark` and `light` choices remain available |
 | `language` | `system` | Since 0.10.0: the interface language. `system` follows the operating system's preferred languages and falls back to English; a tag such as `es`, `de-DE`, `pt-BR` or `zh-Hant` selects that language. An unknown tag follows the system |
 | `custom_theme` | `null` | Selected JSON filename from the `themes` folder |

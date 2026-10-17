@@ -596,6 +596,9 @@ pub struct App {
     intent_track: Option<TrackIntent>,
     /// The row the current song was started from, while it still plays.
     played_row: Option<PlayedRow>,
+    /// The songs found in the local files folder, as the `spotify:local:`
+    /// URIs a playlist lists them by; `None` until the folder is read.
+    pub local_files: Option<(std::path::PathBuf, std::sync::Arc<HashSet<String>>)>,
     /// Requested shuffle mode, applied to every context until changed.
     shuffle_wanted: bool,
     /// The repeat mode saved by the last run, which the first local load
@@ -1099,6 +1102,7 @@ impl App {
             optimistic_playing: None,
             intent_track: None,
             played_row: None,
+            local_files: None,
             shuffle_wanted: session.shuffle_on,
             repeat_wanted: RepeatMode::from_api(&session.repeat),
             shuffle_set_at: None,
@@ -1165,6 +1169,9 @@ impl App {
             pixels_per_point: 1.0,
         };
         app.local.volume = app.settings.volume;
+        if let Some(folder) = app.settings.local_files_folder() {
+            app.backend.send(Command::ScanLocalFiles(folder));
+        }
         // What was played here is on disk and needs nothing from the
         // network, so the tab has rows before Spotify has answered.
         app.rebuild_recents();
@@ -2193,6 +2200,16 @@ impl App {
                     result,
                 } => {
                     self.cover_checked(&id, request, images, result);
+                }
+                Event::LocalFilesFolderChosen(Some(folder)) => {
+                    self.set_local_files_folder(Some(folder));
+                }
+                Event::LocalFilesFolderChosen(None) => {}
+                Event::LocalFiles { folder, uris } => {
+                    // A scan of a folder since replaced says nothing now.
+                    if self.settings.local_files_folder().as_ref() == Some(&folder) {
+                        self.local_files = Some((folder, uris));
+                    }
                 }
                 Event::PlaylistCoverChosen {
                     id,
@@ -9664,6 +9681,29 @@ impl App {
         }
     }
 
+    /// Plays a playlist's `spotify:local:` songs from `folder`, or none.
+    /// The player reads the folder when it starts, so it restarts.
+    pub(crate) fn set_local_files_folder(&mut self, folder: Option<std::path::PathBuf>) {
+        self.settings.local_files_folder = folder
+            .as_ref()
+            .map(|folder| folder.to_string_lossy().into_owned());
+        self.local_files = None;
+        if let Some(folder) = folder {
+            self.backend.send(Command::ScanLocalFiles(folder));
+        }
+        self.actions.push(Action::RestartEngine);
+    }
+
+    /// Whether `item` can start playback here: a local file only when the
+    /// local files folder holds it.
+    pub fn row_playable(&self, item: &PlayableItem) -> bool {
+        crate::ui::widgets::row_playable(item)
+            || self
+                .local_files
+                .as_ref()
+                .is_some_and(|(_, uris)| uris.contains(&local_file_key(item.uri())))
+    }
+
     /// The picked rows to remove one by one, when the removal includes a
     /// song the loaded rows hold more than once: by URI, Spotify would
     /// remove every copy (#937). Only rows whose positions are exact count:
@@ -11369,6 +11409,13 @@ impl App {
                 }
             }
             Action::OpenSkinsFolder => self.open_folder(self.dirs.skins_dir()),
+            Action::ChooseLocalFilesFolder => self.backend.choose_local_files_folder(),
+            Action::ForgetLocalFilesFolder => self.set_local_files_folder(None),
+            Action::OpenLocalFilesFolder => {
+                if let Some(folder) = self.settings.local_files_folder() {
+                    self.open_folder(folder);
+                }
+            }
             Action::ToggleWinampMilkdrop => {
                 self.settings.milkdrop_open = !self.settings.milkdrop_open;
                 self.settings_dirty = true;
@@ -12398,6 +12445,17 @@ fn increase_playlist_total(playlist: &mut Playlist, added: u32) {
     }
 }
 
+/// A `spotify:local:` URI as the player keys it, parsed and written back as
+/// librespot does; empty for any other URI.
+pub(crate) fn local_file_key(uri: &str) -> String {
+    if !uri.starts_with("spotify:local:") {
+        return String::new();
+    }
+    librespot_core::SpotifyUri::from_uri(uri)
+        .map(|uri| uri.to_uri())
+        .unwrap_or_default()
+}
+
 pub fn engine_config(
     dirs: &AppDirs,
     settings: &Settings,
@@ -12424,6 +12482,7 @@ pub fn engine_config(
         audio_cache_dir: settings.audio_cache.then(|| dirs.audio_cache_dir()),
         audio_cache_limit: Some(settings.audio_cache_mb.max(64) * 1024 * 1024),
         proxy,
+        local_files: settings.local_files_folder(),
     }
 }
 
@@ -24853,6 +24912,66 @@ mod tests {
             .iter()
             .map(|row| row.playable().unwrap().uri().to_string())
             .collect()
+    }
+
+    fn local_track(uri: &str) -> PlayableItem {
+        PlayableItem::Track(Track {
+            uri: uri.into(),
+            is_local: true,
+            ..Default::default()
+        })
+    }
+
+    /// A playlist's local file plays when the folder holds it, keyed as the
+    /// player keys it, and only once the folder was read (#3).
+    #[test]
+    fn local_files_play_when_the_folder_holds_them() {
+        let mut app = headless_app();
+        app.backend.set_offline(true);
+        let held = local_track("spotify:local:The+Artist:An+Album:A+Song:215");
+        let spelled = local_track("spotify:local:The%20Artist:An%20Album:A%20Song:215");
+        let missing = local_track("spotify:local:Someone:Else:Song:100");
+        assert!(!app.row_playable(&held));
+        let folder = std::path::PathBuf::from("/music");
+        app.settings.local_files_folder = Some("/music".into());
+        let uris = Arc::new(HashSet::from([local_file_key(
+            "spotify:local:The+Artist:An+Album:A+Song:215",
+        )]));
+        // A scan of a folder since replaced is ignored.
+        app.handle_backend_events(vec![Event::LocalFiles {
+            folder: "/elsewhere".into(),
+            uris: Arc::clone(&uris),
+        }]);
+        assert!(app.local_files.is_none());
+        app.handle_backend_events(vec![Event::LocalFiles { folder, uris }]);
+        assert!(app.row_playable(&held));
+        // The player matches the parts as the file's tags spell them.
+        assert!(!app.row_playable(&spelled));
+        assert!(!app.row_playable(&missing));
+        // Spotify's own songs are untouched.
+        assert!(app.row_playable(&PlayableItem::Track(Track {
+            uri: "spotify:track:abc".into(),
+            ..Default::default()
+        })));
+    }
+
+    /// Choosing or removing the folder saves it and restarts local playback,
+    /// whose player reads the folder when it starts.
+    #[test]
+    fn changing_the_local_files_folder_restarts_playback() {
+        let mut app = headless_app();
+        app.backend.set_offline(true);
+        app.handle_backend_events(vec![Event::LocalFilesFolderChosen(Some("/music".into()))]);
+        assert_eq!(app.settings.local_files_folder.as_deref(), Some("/music"));
+        assert!(matches!(app.actions.as_slice(), [Action::RestartEngine]));
+        app.actions.clear();
+        app.handle_backend_events(vec![Event::LocalFilesFolderChosen(None)]);
+        assert_eq!(app.settings.local_files_folder.as_deref(), Some("/music"));
+        assert!(app.actions.is_empty());
+        app.apply(Action::ForgetLocalFilesFolder, &egui::Context::default());
+        assert_eq!(app.settings.local_files_folder, None);
+        assert!(app.local_files.is_none());
+        assert!(matches!(app.actions.as_slice(), [Action::RestartEngine]));
     }
 
     /// Removing one copy of a song the list holds twice removes that row

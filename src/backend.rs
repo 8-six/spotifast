@@ -44,6 +44,16 @@ const MAX_PENDING_ALBUM_TYPES: usize = 50;
 const AUDIOBOOK_BATCH: usize = 50;
 /// How long resolving a radio station and its songs may take.
 const RADIO_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// The `spotify:local:` URIs of the songs in `folder` and its subfolders,
+/// found exactly as the player finds them, so the songs a playlist lists
+/// that will play are the ones shown as playable.
+fn local_file_uris(folder: &std::path::Path) -> HashSet<String> {
+    librespot_playback::local_file::create_local_file_lookup(&[folder.to_path_buf()])
+        .iter()
+        .map(|(uri, _)| uri.to_uri())
+        .collect()
+}
 /// Newest episodes read from each saved podcast for Home's podcast shelf.
 const HOME_EPISODES_PER_SHOW: u32 = 5;
 pub const PLAYLIST_PAGE_SIZE: u32 = 50;
@@ -668,6 +678,13 @@ pub enum Command {
         selected:
             std::pin::Pin<Box<dyn std::future::Future<Output = Option<rfd::FileHandle>> + Send>>,
     },
+    ChooseLocalFilesFolder {
+        selected:
+            std::pin::Pin<Box<dyn std::future::Future<Output = Option<rfd::FileHandle>> + Send>>,
+    },
+    /// Find the songs in the local files folder, off the UI thread, as the
+    /// player does when it starts.
+    ScanLocalFiles(std::path::PathBuf),
     /// Start (or restart) the Web API sign-in in the browser.
     SignIn {
         request: u64,
@@ -889,6 +906,13 @@ pub struct LyricsRequest {
 }
 
 pub enum Event {
+    /// The folder picked in the local files dialog; `None` when cancelled.
+    LocalFilesFolderChosen(Option<std::path::PathBuf>),
+    /// The `spotify:local:` URIs the songs in `folder` play for.
+    LocalFiles {
+        folder: std::path::PathBuf,
+        uris: Arc<HashSet<String>>,
+    },
     ProxyRestored {
         config: ProxyConfig,
         password: Option<crate::credentials::ProxyPassword>,
@@ -1253,6 +1277,19 @@ impl Backend {
         self.send(Command::ChoosePlaylistCover {
             id,
             request,
+            selected: Box::pin(selected),
+        });
+    }
+
+    /// Construct the folder dialog on the UI thread, like the cover's.
+    pub fn choose_local_files_folder(&self) {
+        if self.offline {
+            return;
+        }
+        let selected = rfd::AsyncFileDialog::new()
+            .set_title("Choose the local files folder")
+            .pick_folder();
+        self.send(Command::ChooseLocalFilesFolder {
             selected: Box::pin(selected),
         });
     }
@@ -2069,6 +2106,32 @@ impl Worker {
                             request,
                             images,
                             result,
+                        });
+                        waker.wake();
+                    });
+                }
+                Command::ChooseLocalFilesFolder { selected } => {
+                    let events = self.events.clone();
+                    let waker = self.waker.clone();
+                    tokio::spawn(async move {
+                        let folder = selected.await.map(|folder| folder.path().to_path_buf());
+                        let _ = events.send(Event::LocalFilesFolderChosen(folder));
+                        waker.wake();
+                    });
+                }
+                Command::ScanLocalFiles(folder) => {
+                    let events = self.events.clone();
+                    let waker = self.waker.clone();
+                    tokio::spawn(async move {
+                        let scanned = folder.clone();
+                        let Ok(uris) =
+                            tokio::task::spawn_blocking(move || local_file_uris(&scanned)).await
+                        else {
+                            return;
+                        };
+                        let _ = events.send(Event::LocalFiles {
+                            folder,
+                            uris: Arc::new(uris),
                         });
                         waker.wake();
                     });

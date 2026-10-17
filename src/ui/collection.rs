@@ -508,6 +508,8 @@ pub struct TableCache {
     pub needle: String,
     pub items_revision: u64,
     pub user_names_revision: u64,
+    /// Which scan of the local files folder decided the playable rows.
+    pub local_files: usize,
     pub visible: Arc<[usize]>,
     pub view_uris: Option<Arc<[String]>>,
     pub plays_shown_rows: bool,
@@ -596,6 +598,13 @@ pub struct ViewOptions<'a> {
     pub plays_shown_rows: bool,
 }
 
+/// Tells one scan of the local files folder from another.
+fn local_files_scan(app: &App) -> usize {
+    app.local_files
+        .as_ref()
+        .map_or(0, |(_, uris)| Arc::as_ptr(uris) as usize)
+}
+
 pub fn prepare_table_view(
     ui: &mut egui::Ui,
     app: &App,
@@ -618,6 +627,7 @@ pub fn prepare_table_view(
             && c.needle == needle
             && c.items_revision == items_revision
             && c.user_names_revision == app.user_names_revision
+            && c.local_files == local_files_scan(app)
     });
 
     if let Some(entry) = cached.filter(|_| is_valid) {
@@ -629,7 +639,7 @@ pub fn prepare_table_view(
             let mut uris = Vec::new();
             for &index in &visible {
                 let item = &items[index].0;
-                view_positions.push(widgets::row_playable(item).then(|| {
+                view_positions.push(app.row_playable(item).then(|| {
                     let position = uris.len();
                     uris.push(item.uri().to_string());
                     position
@@ -642,6 +652,7 @@ pub fn prepare_table_view(
             needle: needle.to_string(),
             items_revision,
             user_names_revision: app.user_names_revision,
+            local_files: local_files_scan(app),
             visible: visible.into(),
             view_uris,
             plays_shown_rows,
@@ -3248,6 +3259,7 @@ mod tests {
             needle: "desp".to_string(),
             items_revision: 5,
             user_names_revision: 2,
+            local_files: 0,
             visible: Arc::new([2]),
             view_uris: Some(Arc::new(["spotify:track:t_2".to_string()])),
             plays_shown_rows: false,

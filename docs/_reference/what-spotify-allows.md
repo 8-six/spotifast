@@ -149,6 +149,13 @@ librespot provides:
   playback session. Sonos receivers are discovered on the local network;
   the Web API alone cannot start or control them.
 - Songs and podcast episodes.
+- Local files that a playlist lists, played from the local files folder chosen
+  in Settings and its subfolders. Spotify keeps only a local file's artist,
+  album, title and length, so the player matches each `spotify:local:` entry
+  to the MP3, MP4, M4P or FLAC file whose tags and length give the same.
+  Only 44.1 kHz files play. The player reads the folder when local playback
+  starts, so songs added later play after the next restart. See
+  [issue #3](https://github.com/crmne/spotifast/issues/3).
 
 Spotify Premium is required. librespot cannot play audio with a free account.
 
@@ -183,9 +190,9 @@ The Web API and librespot do not provide these features:
   playlists or search, and no way to feed the equalizer and visualisers.
   Spotifast will reconsider it if Spotify offers a supported desktop path.
   See [issue #965](https://github.com/crmne/spotifast/issues/965).
-- **Local files.** librespot only streams Spotify's catalogue. It cannot fetch
-  audio for a `spotify:local:` entry. Playing files from disk would require a
-  separate player. See [issue #3](https://github.com/crmne/spotifast/issues/3).
+- **Local files from Spotify's Local Files playlist.** librespot cannot play
+  that playlist; add the songs to another playlist first. Local files on other
+  computers or phones are not shared either: Spotify keeps only their names.
 - **Audiobooks.** librespot does not play them. Spotify lists some
   audiobooks among saved shows; since 0.10.0, Spotifast asks the
   librespot session which ones and leaves them out of the Podcasts shelf.

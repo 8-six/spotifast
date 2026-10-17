@@ -1488,7 +1488,7 @@ fn track_row_contents(
     let width = ui.available_width();
     let (rect, response) = ui.allocate_exact_size(vec2(width, row_height), Sense::click_and_drag());
     let rect = rect.translate(vec2(0.0, row.shift));
-    let unavailable = !row_playable(row.item);
+    let unavailable = !app.row_playable(row.item);
     response.widget_info(|| {
         egui::WidgetInfo::selected(
             egui::WidgetType::Button,
