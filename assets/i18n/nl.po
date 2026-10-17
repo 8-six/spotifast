@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-17 18:44+0200\n"
+"POT-Creation-Date: 2026-10-17 18:54+0200\n"
 "PO-Revision-Date: 2026-09-09 13:30+0000\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: Dutch\n"
@@ -29,12 +29,12 @@ msgid "Play {name}"
 msgstr "{name} afspelen"
 
 #: src/ui/sidebar.rs:302 src/app.rs:2942 src/app.rs:19729
-#: src/ui/collection.rs:1927 src/ui/collection.rs:2142
+#: src/ui/collection.rs:1956 src/ui/collection.rs:2171
 msgid "Playlist"
 msgstr "Playlist"
 
 #: src/ui/sidebar.rs:312 src/app.rs:2916 src/app.rs:19734
-#: src/ui/collection.rs:2135 src/ui/home.rs:79 src/ui/keys.rs:264
+#: src/ui/collection.rs:2164 src/ui/home.rs:79 src/ui/keys.rs:264
 #: src/ui/winamp/playlist.rs:653
 msgid "Liked Songs"
 msgstr "Gelikete nummers"
@@ -48,7 +48,7 @@ msgstr "Bibliotheekvolgorde"
 msgid "Recently played"
 msgstr "Onlangs afgespeeld"
 
-#: src/ui/sidebar.rs:358 src/ui/dialogs.rs:366 src/ui/dialogs.rs:523
+#: src/ui/sidebar.rs:358 src/ui/dialogs.rs:372 src/ui/dialogs.rs:529
 msgid "Name"
 msgstr "Naam"
 
@@ -164,7 +164,7 @@ msgid "Sort by recently played"
 msgstr "Sorteren op onlangs afgespeeld"
 
 #: src/ui/sidebar.rs:1988 src/ui/player_bar.rs:737 src/ui/widgets.rs:1166
-#: src/ui/artist.rs:388 src/ui/collection.rs:260 src/ui/prerelease.rs:309
+#: src/ui/artist.rs:388 src/ui/collection.rs:289 src/ui/prerelease.rs:309
 #: src/ui/search.rs:408 src/ui/show.rs:389
 msgid "Play"
 msgstr "Afspelen"
@@ -188,7 +188,7 @@ msgstr[1] "Playlist • {count} nummers"
 #. Translators: Keep {count} exactly as written. It becomes a number of songs.
 #. Translators: Keep {count} exactly as written. It becomes the number of selected songs.
 #. Translators: {count} is a number of songs.
-#: src/i18n.rs:201 src/ui/widgets.rs:695 src/ui/collection.rs:2230
+#: src/i18n.rs:201 src/ui/widgets.rs:695 src/ui/collection.rs:2259
 #, rust-format
 msgid "{count} song"
 msgid_plural "{count} songs"
@@ -247,7 +247,7 @@ msgstr "Opslaan in Gelikete nummers"
 msgid "Remove from Liked Songs"
 msgstr "Verwijderen uit Gelikete nummers"
 
-#: src/ui/player_bar.rs:681 src/ui/player_bar.rs:688 src/ui/collection.rs:314
+#: src/ui/player_bar.rs:681 src/ui/player_bar.rs:688 src/ui/collection.rs:343
 msgid "Shuffle"
 msgstr "Willekeurige volgorde"
 
@@ -255,7 +255,7 @@ msgstr "Willekeurige volgorde"
 msgid "Previous"
 msgstr "Vorige"
 
-#: src/ui/player_bar.rs:735 src/ui/collection.rs:258
+#: src/ui/player_bar.rs:735 src/ui/collection.rs:287
 msgid "Pause"
 msgstr "Pauzeren"
 
@@ -350,7 +350,7 @@ msgid "Next up"
 msgstr "Daarna"
 
 #: src/ui/queue.rs:474 src/ui/queue.rs:507 src/ui/widgets.rs:2699
-#: src/ui/collection.rs:1157 src/ui/prerelease.rs:242
+#: src/ui/collection.rs:1186 src/ui/prerelease.rs:242
 msgid "Retry"
 msgstr "Opnieuw proberen"
 
@@ -380,20 +380,20 @@ msgid "Play a song to see its lyrics."
 msgstr "Speel een nummer af om de songtekst te zien."
 
 #: src/ui/lyrics.rs:143 src/ui/lyrics.rs:160 src/ui/artist.rs:272
-#: src/ui/artist.rs:300 src/ui/collection.rs:626 src/ui/collection.rs:1515
-#: src/ui/collection.rs:1645 src/ui/collection.rs:1671
-#: src/ui/collection.rs:1735 src/ui/collection.rs:1844
-#: src/ui/collection.rs:1870 src/ui/collection.rs:2115 src/ui/home.rs:25
+#: src/ui/artist.rs:300 src/ui/collection.rs:655 src/ui/collection.rs:1544
+#: src/ui/collection.rs:1674 src/ui/collection.rs:1700
+#: src/ui/collection.rs:1764 src/ui/collection.rs:1873
+#: src/ui/collection.rs:1899 src/ui/collection.rs:2144 src/ui/home.rs:25
 #: src/ui/library.rs:259 src/ui/search.rs:91 src/ui/show.rs:66
 #: src/ui/show.rs:112 src/ui/show.rs:142
 msgid "You're offline"
 msgstr "Je bent offline"
 
 #: src/ui/lyrics.rs:146 src/ui/lyrics.rs:163 src/ui/artist.rs:275
-#: src/ui/artist.rs:303 src/ui/collection.rs:629 src/ui/collection.rs:1518
-#: src/ui/collection.rs:1648 src/ui/collection.rs:1674
-#: src/ui/collection.rs:1738 src/ui/collection.rs:1847
-#: src/ui/collection.rs:1873 src/ui/collection.rs:2118 src/ui/home.rs:34
+#: src/ui/artist.rs:303 src/ui/collection.rs:658 src/ui/collection.rs:1547
+#: src/ui/collection.rs:1677 src/ui/collection.rs:1703
+#: src/ui/collection.rs:1767 src/ui/collection.rs:1876
+#: src/ui/collection.rs:1902 src/ui/collection.rs:2147 src/ui/home.rs:34
 #: src/ui/library.rs:262 src/ui/show.rs:69 src/ui/show.rs:115
 #: src/ui/show.rs:145
 msgid "Spotifast will reconnect automatically when your connection returns."
@@ -429,7 +429,7 @@ msgid "No timed lyrics for this track."
 msgstr "Geen gesynchroniseerde songtekst voor dit nummer."
 
 #: src/ui/lyrics.rs:411 src/ui/widgets.rs:2665 src/app.rs:11883
-#: src/ui/collection.rs:821
+#: src/ui/collection.rs:850
 msgid "Loading…"
 msgstr "Laden…"
 
@@ -453,7 +453,7 @@ msgstr "Verwijderen uit deze playlist"
 msgid "Filter playlists"
 msgstr "Playlists filteren"
 
-#: src/ui/widgets.rs:869 src/ui/dialogs.rs:359
+#: src/ui/widgets.rs:869 src/ui/dialogs.rs:365
 msgid "New playlist"
 msgstr "Nieuwe playlist"
 
@@ -519,20 +519,20 @@ msgctxt "artist"
 msgid "Follow"
 msgstr "Volgen"
 
-#: src/ui/widgets.rs:1200 src/ui/collection.rs:1976 src/ui/collection.rs:1998
+#: src/ui/widgets.rs:1200 src/ui/collection.rs:2005 src/ui/collection.rs:2027
 #: src/ui/show.rs:241
 msgid "Remove from Your Library"
 msgstr "Verwijderen uit Jouw bibliotheek"
 
-#: src/ui/widgets.rs:1201 src/ui/collection.rs:1975
+#: src/ui/widgets.rs:1201 src/ui/collection.rs:2004
 msgid "Add to Your Library"
 msgstr "Toevoegen aan Jouw bibliotheek"
 
-#: src/ui/widgets.rs:1211 src/ui/dialogs.rs:458
+#: src/ui/widgets.rs:1211 src/ui/dialogs.rs:464
 msgid "Edit details"
 msgstr "Gegevens bewerken"
 
-#: src/ui/widgets.rs:1225 src/ui/dialogs.rs:94
+#: src/ui/widgets.rs:1225 src/ui/dialogs.rs:100
 msgid "Delete"
 msgstr "Verwijderen"
 
@@ -554,7 +554,7 @@ msgstr "Ga naar artiestenradio"
 msgid "Play {title}, {subtitle}"
 msgstr "{title}, {subtitle} afspelen"
 
-#: src/ui/widgets.rs:1958 src/ui/artist.rs:418 src/ui/collection.rs:363
+#: src/ui/widgets.rs:1958 src/ui/artist.rs:418 src/ui/collection.rs:392
 #: src/ui/show.rs:259 src/ui/show.rs:467
 msgid "More"
 msgstr "Meer"
@@ -1226,7 +1226,7 @@ msgstr "Client ID"
 msgid "Setup guide"
 msgstr "Installatiegids"
 
-#: src/ui/settings.rs:459 src/ui/settings.rs:475 src/ui/dialogs.rs:96
+#: src/ui/settings.rs:459 src/ui/settings.rs:475 src/ui/dialogs.rs:102
 msgid "Remove"
 msgstr "Verwijderen"
 
@@ -1927,7 +1927,7 @@ msgstr "Controleren op updates"
 msgid "Checking…"
 msgstr "Controleren…"
 
-#: src/ui/settings.rs:1940 src/ui/dialogs.rs:153 src/ui/keys.rs:306
+#: src/ui/settings.rs:1940 src/ui/dialogs.rs:159 src/ui/keys.rs:306
 #: src/ui/topbar.rs:479
 msgid "Keyboard shortcuts"
 msgstr "Sneltoetsen"
@@ -2101,7 +2101,7 @@ msgid_plural "{count} followers"
 msgstr[0] "{count} volger"
 msgstr[1] "{count} volgers"
 
-#: src/ui/artist.rs:379 src/ui/collection.rs:246 src/ui/show.rs:218
+#: src/ui/artist.rs:379 src/ui/collection.rs:275 src/ui/show.rs:218
 #: src/ui/show.rs:376
 msgid "Starting…"
 msgstr "Starten…"
@@ -2111,68 +2111,72 @@ msgctxt "artist"
 msgid "Following"
 msgstr "Volgend"
 
-#: src/ui/collection.rs:265
+#: src/ui/collection.rs:120
+msgid "Enlarge cover"
+msgstr "Hoes vergroten"
+
+#: src/ui/collection.rs:294
 msgid "No playable songs in this view"
 msgstr "Geen afspeelbare nummers in deze weergave"
 
-#: src/ui/collection.rs:312
+#: src/ui/collection.rs:341
 msgid "Shuffle off"
 msgstr "Willekeurige volgorde uit"
 
-#: src/ui/collection.rs:350 src/ui/collection.rs:376
+#: src/ui/collection.rs:379 src/ui/collection.rs:405
 msgid "Save as playlist"
 msgstr "Opslaan als playlist"
 
-#: src/ui/collection.rs:403
+#: src/ui/collection.rs:432
 msgid "Filter"
 msgstr "Filteren"
 
-#: src/ui/collection.rs:424
+#: src/ui/collection.rs:453
 msgid "Refreshing…"
 msgstr "Vernieuwen…"
 
-#: src/ui/collection.rs:426 src/ui/devices.rs:211
+#: src/ui/collection.rs:455 src/ui/devices.rs:211
 msgid "Refresh"
 msgstr "Vernieuwen"
 
-#: src/ui/collection.rs:813 src/ui/collection.rs:840
+#: src/ui/collection.rs:842 src/ui/collection.rs:869
 msgid "Unavailable"
 msgstr "Niet beschikbaar"
 
-#: src/ui/collection.rs:819
+#: src/ui/collection.rs:848
 msgid "You're offline. Reconnect to load more songs."
 msgstr "Je bent offline. Maak opnieuw verbinding om meer nummers te laden."
 
-#: src/ui/collection.rs:968
+#: src/ui/collection.rs:997
 msgid "Nothing here yet"
 msgstr "Hier staat nog niets"
 
-#: src/ui/collection.rs:969
+#: src/ui/collection.rs:998
 msgid "Added songs appear here."
 msgstr "Toegevoegde nummers verschijnen hier."
 
-#: src/ui/collection.rs:1421 src/ui/home.rs:725
+#: src/ui/collection.rs:1450 src/ui/home.rs:725
 msgid "Your top songs"
 msgstr "Je topnummers"
 
-#: src/ui/collection.rs:1430
+#: src/ui/collection.rs:1459
 msgid "Your most-played tracks from the last four weeks."
 msgstr "Je meest afgespeelde nummers van de afgelopen vier weken."
 
-#: src/ui/collection.rs:1923
+#: src/ui/collection.rs:1952
 msgid "Collaborative Playlist"
 msgstr "Gezamenlijke playlist"
 
-#: src/ui/collection.rs:1925
+#: src/ui/collection.rs:1954
 msgid "Public Playlist"
 msgstr "Openbare playlist"
 
-#: src/ui/collection.rs:1997
+#: src/ui/collection.rs:2026
 msgid "Save to Your Library"
 msgstr "Opslaan in Jouw bibliotheek"
 
 #. Translators: {count} is the number of people who saved a playlist.
-#: src/ui/collection.rs:2242
+#: src/ui/collection.rs:2271
 #, rust-format
 msgid "{count} save"
 msgid_plural "{count} saves"
@@ -2181,7 +2185,7 @@ msgstr[1] "{count} keer opgeslagen"
 
 #. Translators: {count} is a number of songs and {duration} their total
 #. length, such as "2 hr 13 min".
-#: src/ui/collection.rs:2255
+#: src/ui/collection.rs:2284
 #, rust-format
 msgid "{count} song, {duration}"
 msgid_plural "{count} songs, {duration}"
@@ -2189,19 +2193,19 @@ msgstr[0] "{count} nummer, {duration}"
 msgstr[1] "{count} nummers, {duration}"
 
 #. Translators: {name} is the name of someone who added songs to the playlist.
-#: src/ui/collection.rs:2325
+#: src/ui/collection.rs:2354
 #, rust-format
 msgid "with {name}"
 msgstr "met {name}"
 
 #. Translators: {first} and {second} are names of people who added songs.
-#: src/ui/collection.rs:2329
+#: src/ui/collection.rs:2358
 #, rust-format
 msgid "with {first} and {second}"
 msgstr "met {first} en {second}"
 
 #. Translators: {count} is how many other people added songs to the playlist.
-#: src/ui/collection.rs:2336
+#: src/ui/collection.rs:2365
 #, rust-format
 msgid "and {count} other"
 msgid_plural "and {count} others"
@@ -2247,11 +2251,11 @@ msgstr "Beperkt"
 msgid "Play here"
 msgstr "Hier afspelen"
 
-#: src/ui/dialogs.rs:38
+#: src/ui/dialogs.rs:44
 msgid "Spend less time waiting for Spotify"
 msgstr "Minder wachten op Spotify"
 
-#: src/ui/dialogs.rs:41
+#: src/ui/dialogs.rs:47
 msgid ""
 "Spotifast's default connection shares Spotify's request limit with other "
 "listeners. When it gets busy, loading music and using playback controls can "
@@ -2261,7 +2265,7 @@ msgstr ""
 "andere luisteraars. Als het druk is, kan het laden van muziek en het gebruik "
 "van de afspeelknoppen langer duren."
 
-#: src/ui/dialogs.rs:42
+#: src/ui/dialogs.rs:48
 msgid ""
 "Your Premium account lets you create a free personal Spotify app. Connect it "
 "here to give supported requests your own allowance. Some pages still use the "
@@ -2271,7 +2275,7 @@ msgstr ""
 "Verbind die hier zodat ondersteunde verzoeken je eigen tegoed gebruiken. "
 "Sommige pagina's gebruiken nog steeds de gedeelde verbinding."
 
-#: src/ui/dialogs.rs:43
+#: src/ui/dialogs.rs:49
 msgid ""
 "Setup takes a few minutes. You can also find it later in Settings under "
 "Personal Spotify app."
@@ -2279,24 +2283,24 @@ msgstr ""
 "Instellen duurt een paar minuten. Je vindt het later ook in Instellingen "
 "onder Persoonlijke Spotify-app."
 
-#: src/ui/dialogs.rs:50
+#: src/ui/dialogs.rs:56
 msgid "Set up personal app"
 msgstr "Persoonlijke app instellen"
 
-#: src/ui/dialogs.rs:53
+#: src/ui/dialogs.rs:59
 msgid "Keep shared app"
 msgstr "Gedeelde app houden"
 
-#: src/ui/dialogs.rs:64
+#: src/ui/dialogs.rs:70
 msgid "Delete playlist?"
 msgstr "Playlist verwijderen?"
 
-#: src/ui/dialogs.rs:66
+#: src/ui/dialogs.rs:72
 msgid "Remove from Your Library?"
 msgstr "Verwijderen uit Jouw bibliotheek?"
 
 #. Translators: {name} is a playlist name.
-#: src/ui/dialogs.rs:74
+#: src/ui/dialogs.rs:80
 #, rust-format
 msgid "Delete “{name}”? You can recover it from Spotify for 90 days."
 msgstr ""
@@ -2304,37 +2308,37 @@ msgstr ""
 "Spotify."
 
 #. Translators: {name} is a playlist name.
-#: src/ui/dialogs.rs:77
+#: src/ui/dialogs.rs:83
 #, rust-format
 msgid "“{name}” will no longer appear in Your Library."
 msgstr "“{name}” verschijnt niet meer in Jouw bibliotheek."
 
-#: src/ui/dialogs.rs:104 src/ui/dialogs.rs:147 src/ui/dialogs.rs:425
-#: src/ui/dialogs.rs:606 src/ui/login.rs:91
+#: src/ui/dialogs.rs:110 src/ui/dialogs.rs:153 src/ui/dialogs.rs:431
+#: src/ui/dialogs.rs:612 src/ui/login.rs:91
 msgid "Cancel"
 msgstr "Annuleren"
 
-#: src/ui/dialogs.rs:120
+#: src/ui/dialogs.rs:126
 msgid "Songs already in this playlist"
 msgstr "Nummers staan al in deze playlist"
 
-#: src/ui/dialogs.rs:122
+#: src/ui/dialogs.rs:128
 msgid "Song already in this playlist"
 msgstr "Nummer staat al in deze playlist"
 
-#: src/ui/dialogs.rs:139
+#: src/ui/dialogs.rs:145
 msgid "Add anyway"
 msgstr "Toch toevoegen"
 
-#: src/ui/dialogs.rs:196
+#: src/ui/dialogs.rs:202
 msgid "Done"
 msgstr "Klaar"
 
-#: src/ui/dialogs.rs:204
+#: src/ui/dialogs.rs:210
 msgid "This account cannot play music here"
 msgstr "Met dit account kun je hier geen muziek afspelen"
 
-#: src/ui/dialogs.rs:213
+#: src/ui/dialogs.rs:219
 msgid ""
 "Playback needs Spotify Premium. Free accounts can browse and search, but "
 "cannot play music through Spotifast."
@@ -2342,38 +2346,38 @@ msgstr ""
 "Afspelen vereist Spotify Premium. Met een Free-account kun je bladeren en "
 "zoeken, maar geen muziek afspelen via Spotifast."
 
-#: src/ui/dialogs.rs:222
+#: src/ui/dialogs.rs:228
 msgid "OK"
 msgstr "OK"
 
-#: src/ui/dialogs.rs:263
+#: src/ui/dialogs.rs:269
 #, rust-format
 msgid "This song is already in “{playlist}”. Add it again?"
 msgstr "Dit nummer staat al in “{playlist}”. Opnieuw toevoegen?"
 
-#: src/ui/dialogs.rs:270
+#: src/ui/dialogs.rs:276
 #, rust-format
 msgid "This song is already in “{playlist}”. Add them anyway?"
 msgstr "Dit nummer staat al in “{playlist}”. Toch toevoegen?"
 
 #. Translators: {name} is a song name and {playlist} a playlist name.
-#: src/ui/dialogs.rs:275
+#: src/ui/dialogs.rs:281
 #, rust-format
 msgid "“{name}” is already in “{playlist}”. Add it again?"
 msgstr "“{name}” staat al in “{playlist}”. Opnieuw toevoegen?"
 
-#: src/ui/dialogs.rs:283
+#: src/ui/dialogs.rs:289
 #, rust-format
 msgid "“{name}” is already in “{playlist}”. Add them anyway?"
 msgstr "“{name}” staat al in “{playlist}”. Toch toevoegen?"
 
-#: src/ui/dialogs.rs:292
+#: src/ui/dialogs.rs:298
 #, rust-format
 msgid "“{first}” and “{second}” are already in “{playlist}”. Add them anyway?"
 msgstr "“{first}” en “{second}” staan al in “{playlist}”. Toch toevoegen?"
 
 #. Translators: {first} and {second} are song names, {count} is how many more songs are already in the playlist, and {playlist} is a playlist name.
-#: src/ui/dialogs.rs:301
+#: src/ui/dialogs.rs:307
 #, rust-format
 msgid ""
 "“{first}”, “{second}”, and {count} more are already in “{playlist}”. Add "
@@ -2388,64 +2392,64 @@ msgstr[1] ""
 "“{first}”, “{second}” en {count} andere staan al in “{playlist}”. Toch "
 "toevoegen?"
 
-#: src/ui/dialogs.rs:376
+#: src/ui/dialogs.rs:382
 msgid "My playlist"
 msgstr "Mijn playlist"
 
-#: src/ui/dialogs.rs:381 src/ui/dialogs.rs:384 src/ui/dialogs.rs:571
-#: src/ui/dialogs.rs:580
+#: src/ui/dialogs.rs:387 src/ui/dialogs.rs:390 src/ui/dialogs.rs:577
+#: src/ui/dialogs.rs:586
 msgid "Public playlist"
 msgstr "Openbare playlist"
 
 #. Translators: {count} is the number of songs.
-#: src/ui/dialogs.rs:397
+#: src/ui/dialogs.rs:403
 #, rust-format
 msgid "{count} song will be added."
 msgid_plural "{count} songs will be added."
 msgstr[0] "{count} nummer wordt toegevoegd."
 msgstr[1] "{count} nummers worden toegevoegd."
 
-#: src/ui/dialogs.rs:415
+#: src/ui/dialogs.rs:421
 msgid "Create"
 msgstr "Maken"
 
-#: src/ui/dialogs.rs:474
+#: src/ui/dialogs.rs:480
 msgid "Selected playlist cover"
 msgstr "Geselecteerde playlistcover"
 
-#: src/ui/dialogs.rs:481
+#: src/ui/dialogs.rs:487
 msgid "Current playlist cover"
 msgstr "Huidige playlistcover"
 
-#: src/ui/dialogs.rs:490
+#: src/ui/dialogs.rs:496
 msgid "Uploading cover…"
 msgstr "Cover uploaden…"
 
-#: src/ui/dialogs.rs:492
+#: src/ui/dialogs.rs:498
 msgid "Choosing cover…"
 msgstr "Cover kiezen…"
 
-#: src/ui/dialogs.rs:498
+#: src/ui/dialogs.rs:504
 msgid "Change cover"
 msgstr "Cover wijzigen"
 
-#: src/ui/dialogs.rs:507
+#: src/ui/dialogs.rs:513
 msgid "Upload cover"
 msgstr "Cover uploaden"
 
-#: src/ui/dialogs.rs:533
+#: src/ui/dialogs.rs:539
 msgid "Playlist name"
 msgstr "Naam van playlist"
 
-#: src/ui/dialogs.rs:539
+#: src/ui/dialogs.rs:545
 msgid "Description"
 msgstr "Beschrijving"
 
-#: src/ui/dialogs.rs:554
+#: src/ui/dialogs.rs:560
 msgid "Optional description"
 msgstr "Optionele beschrijving"
 
-#: src/ui/dialogs.rs:596
+#: src/ui/dialogs.rs:602
 msgid "Save"
 msgstr "Opslaan"
 

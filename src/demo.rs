@@ -9949,6 +9949,63 @@ mod tests {
         }
         app.backend.shutdown();
     }
+    /// Clicking a page's header cover shows Spotify's largest artwork, and a
+    /// click on it, a click beside it, or Esc closes it (#586). Liked Songs'
+    /// drawn cover has nothing to enlarge.
+    #[test]
+    fn clicking_a_header_cover_enlarges_it_until_any_click_or_escape() {
+        use egui::accesskit::{Action as AccessibleAction, Role};
+        let (ctx, mut app) = accessible_app("cover-art");
+        let open = |ctx: &egui::Context, app: &mut App| {
+            let tree = accessible_frame(ctx, app, vec![]);
+            let cover = accessible_node(&tree, "Enlarge cover", Role::Button);
+            accessible_frame(
+                ctx,
+                app,
+                vec![accessible_action(cover, AccessibleAction::Click, None)],
+            );
+            let Some(Dialog::CoverArt { url, title, .. }) = &app.dialog else {
+                panic!("the cover opens enlarged: {:?}", app.dialog);
+            };
+            assert!(url.ends_with("/640/640"), "the largest artwork: {url}");
+            assert_eq!(title, "Late night focus");
+            // The modal's first frame only measures it.
+            accessible_frame(ctx, app, vec![]);
+            accessible_frame(ctx, app, vec![])
+        };
+        app.open(Page::Playlist("pl1".into()));
+        accessible_frame(&ctx, &mut app, vec![]);
+        let centre = egui::pos2(640.0, 400.0);
+        for close in [
+            pointer_click(centre, egui::PointerButton::Primary),
+            pointer_click(egui::pos2(8.0, 8.0), egui::PointerButton::Primary),
+            vec![egui::Event::Key {
+                key: egui::Key::Escape,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        ] {
+            let tree = open(&ctx, &mut app);
+            accessible_node(&tree, "Late night focus", Role::Image);
+            accessible_frame(&ctx, &mut app, close);
+            accessible_frame(&ctx, &mut app, vec![]);
+            assert!(app.dialog.is_none(), "it closes");
+            assert_eq!(app.page(), &Page::Playlist("pl1".into()), "on its page");
+        }
+        app.open(Page::LikedSongs);
+        let tree = accessible_frame(&ctx, &mut app, vec![]);
+        assert!(
+            !tree
+                .nodes
+                .iter()
+                .any(|(_, node)| node.label() == Some("Enlarge cover")),
+            "Liked Songs has no artwork to enlarge"
+        );
+        app.backend.shutdown();
+    }
+
     #[test]
     fn saved_toggles_stay_green_while_hovered() {
         // alb0 is saved, its first song is liked, and so is the song in

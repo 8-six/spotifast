@@ -155,6 +155,12 @@ default order, where the rows on screen match the order saved on Spotify.
 Right-clicking the playing song in the player bar offers the same removal
 while it plays from a playlist you can edit.
 
+## Viewing cover artwork
+
+Click the cover at the top of a playlist, album, artist, or podcast page to
+see it enlarged, at the largest size Spotify has. Click anywhere or press
+`Esc` to return to the page.
+
 ## Refreshing a playlist
 
 Since 0.8.0, choose **Refresh** in a playlist's **…** menu to reload
