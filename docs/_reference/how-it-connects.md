@@ -151,10 +151,19 @@ contexts and queue in memory. The replacement session restores them after
 Connect registration instead of loading only the interrupted song. Unresolved
 context pages continue through the new session. The snapshot contains no login
 credentials, is never written to disk, and cannot be restored by another
-account. Reconnecting can still briefly interrupt audio, and the replacement
-engine starts at the volume being heard. This recovery applies to unexpected
-disconnects; changing audio settings still restarts the engine with its
-current-track pickup.
+account. The replacement engine starts at the volume being heard. This
+recovery applies to unexpected disconnects; changing audio settings still
+restarts the engine with its current-track pickup.
+
+A song playing or paused when the session drops stays as it is while the
+replacement session connects: the player keeps playing the audio it has
+already fetched, and the new session takes that same player over and picks
+the song up where it has got to, without loading it again.
+Pausing or playing during the reconnect works on that song. A song that runs
+out of fetched audio, or the next song, which needs a new audio key, waits
+for the new session. The song plays on through failed reconnection attempts
+that are retried; choosing something else, changing audio settings, signing
+out, or a reconnection that gives up stops it.
 
 ## What the client stores
 
@@ -482,8 +491,8 @@ approval; the browser opens only when there is none or Spotify rejects it.
 
 On macOS, local playback and track loading declare a user-initiated activity
 so App Nap does not throttle them when another application covers Spotifast.
-Pausing, stopping, an output error, or disconnecting releases the activity;
-remote playback does not hold it. The activity permits idle system sleep
+Pausing, stopping, or an output error releases the activity; a song playing
+on through a dropped session keeps it, and remote playback does not hold it. The activity permits idle system sleep
 and does not keep the display awake.
 
 Since 0.9.0, selecting this computer in the device picker asks

@@ -70,12 +70,11 @@ pub fn visualiser_fps(budget: Budget, conditions: Conditions, fps: u32) -> Optio
 
 /// Whether local playback is doing work the user is waiting for, which
 /// macOS must not slow down with App Nap while another app is in front:
-/// playing or loading on a connected engine. Pause, stop, an output error
-/// and a disconnection all let the app nap again; remote playback never
-/// holds it awake.
+/// playing or loading, including a song playing on through a dropped
+/// session while the next one connects (#268). Pause, stop and an output
+/// error let the app nap again; remote playback never holds it awake.
 pub fn playback_needs_activity(local: &LocalState) -> bool {
-    local.connected
-        && local.error.is_none()
+    local.error.is_none()
         && (local.loading || matches!(local.playback, Playback::Playing | Playback::Loading))
 }
 
@@ -209,7 +208,10 @@ mod tests {
         assert!(!playback_needs_activity(&local));
         local.error = None;
         local.connected = false;
-        assert!(!playback_needs_activity(&local));
+        assert!(
+            playback_needs_activity(&local),
+            "a song playing on through a dropped session"
+        );
         assert!(!playback_needs_activity(&LocalState::default()));
     }
 }

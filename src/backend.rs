@@ -27,7 +27,7 @@ use crate::images::{ArtLoader, accent_color};
 use crate::model::PlaylistCache;
 use crate::paths::AppDirs;
 use crate::player::{
-    Engine, EngineConfig, EngineEvent, Heard, LocalState, PlaybackResume, PlayerCommand,
+    Engine, EngineConfig, EngineEvent, Heard, KeptPlayer, LocalState, PlaybackResume, PlayerCommand,
 };
 use crate::session_reads;
 use crate::settings::ProxyConfig;
@@ -1648,6 +1648,9 @@ struct Worker {
     resume: Option<PlaybackResume>,
     /// A pickup in flight: the load to repeat and how often it was tried.
     resume_verify: Option<(PlaybackResume, u8)>,
+    /// The player of an engine whose session dropped, still playing what it
+    /// had fetched, for the next engine to carry on with (#268).
+    kept_player: Option<KeptPlayer>,
     network_reachable: bool,
     waiting_for_network: bool,
     engine_attempt: u64,
@@ -1724,6 +1727,7 @@ impl Worker {
             reconnects: Vec::new(),
             resume: None,
             resume_verify: None,
+            kept_player: None,
             network_reachable: true,
             waiting_for_network: false,
             engine_attempt: 0,
@@ -2033,14 +2037,30 @@ impl Worker {
                         self.resume = None;
                     }
                     match &self.engine {
+                        // Until the new session picks the song up, it has
+                        // nothing to pause: the player does it (#268).
+                        Some(engine)
+                            if command == PlayerCommand::Toggle
+                                && engine.carrying()
+                                && engine.keep_player().toggle() => {}
                         Some(engine) => {
                             if let Err(error) = engine.command(command) {
                                 self.emit(Event::Error(format!("Playback error: {error}")));
                             }
                         }
-                        None => self.emit(Event::Error(
-                            "Local playback isn't set up on this computer yet".into(),
-                        )),
+                        // While the session reconnects, the song it left
+                        // pauses and plays on its own player (#268).
+                        None if command == PlayerCommand::Toggle
+                            && self.kept_player.as_ref().is_some_and(KeptPlayer::toggle) => {}
+                        None => {
+                            if matches!(&command, PlayerCommand::Load(_)) {
+                                // Something else chosen: the old song stops.
+                                self.stop_kept_player();
+                            }
+                            self.emit(Event::Error(
+                                "Local playback isn't set up on this computer yet".into(),
+                            ))
+                        }
                     }
                 }
                 Command::Api(ApiRequest::Search { query, serial }) => self.search(query, serial),
@@ -2519,6 +2539,7 @@ impl Worker {
         if let Some(engine) = self.engine.take() {
             engine.shutdown();
         }
+        self.stop_kept_player();
         drop(cache_writes);
         let _ = cache_writer.await;
     }
@@ -2996,6 +3017,7 @@ impl Worker {
         if let Some(engine) = self.engine.take() {
             engine.shutdown();
         }
+        self.stop_kept_player();
         if let Some(cancel) = self.cancel_signin.take() {
             let _ = cancel.send(true);
         }
@@ -3084,6 +3106,9 @@ impl Worker {
         if !self.signed_in {
             return;
         }
+        // New audio settings take effect now, even when the replacement
+        // waits for a connection in flight.
+        self.stop_kept_player();
         if defer_engine_replace(self.engine_busy, &mut self.engine_restart_pending) {
             return;
         }
@@ -3104,7 +3129,7 @@ impl Worker {
             return;
         }
         if !self.network_reachable {
-            self.take_engine_for_resume();
+            self.take_engine_keeping_player();
             self.waiting_for_network = true;
             self.emit(Event::Playback(LocalPlayback::WaitingForNetwork));
             return;
@@ -3123,7 +3148,8 @@ impl Worker {
             "local playback session ended; reconnecting ({} of {RECONNECT_LIMIT} in ten minutes)",
             self.reconnects.len()
         );
-        self.replace_engine();
+        self.take_engine_keeping_player();
+        self.resume_engine();
     }
 
     /// Try the saved grant again after a backoff. Each failure in a row
@@ -3182,6 +3208,7 @@ impl Worker {
     /// comes back at the level it was heard at, not at the level the app
     /// launched with.
     fn take_engine_for_resume(&mut self) {
+        self.stop_kept_player();
         self.resume_verify = None;
         self.album_type_lookup.requeue_active_for_new_engine();
         self.playlist_header_lookup.requeue_active_for_new_engine();
@@ -3189,6 +3216,32 @@ impl Worker {
         if let Some(engine) = self.engine.take() {
             self.resume = engine.resume_point();
             engine.shutdown();
+        }
+    }
+
+    /// Takes down an engine whose session dropped, keeping its player: the
+    /// song plays on from what it has fetched while the next engine
+    /// connects, and that engine takes the player over (#268).
+    fn take_engine_keeping_player(&mut self) {
+        self.resume_verify = None;
+        self.album_type_lookup.requeue_active_for_new_engine();
+        self.playlist_header_lookup.requeue_active_for_new_engine();
+        self.carry_volume();
+        if let Some(engine) = self.engine.take() {
+            // A replacement that dropped before picking the song up has no
+            // playback of its own to give: the first pickup stands.
+            if !engine.carrying() || self.resume.is_none() {
+                self.resume = engine.resume_point();
+            }
+            self.kept_player = Some(engine.keep_player());
+        }
+    }
+
+    /// Stops the song a dropped session left playing, when no engine is
+    /// going to pick it up.
+    fn stop_kept_player(&mut self) {
+        if let Some(player) = self.kept_player.take() {
+            player.stop();
         }
     }
 
@@ -3341,6 +3394,7 @@ impl Worker {
         let proxy = config.proxy.librespot_url();
         self.engine_proxy = proxy.clone();
         let notify = self.engine_notify();
+        let kept = self.kept_player.clone();
         let events = self.events.clone();
         let commands = self.commands.clone();
         let waker = self.waker.clone();
@@ -3365,6 +3419,7 @@ impl Worker {
                 credentials,
                 cache,
                 notify,
+                kept,
             ))
             .await;
             let outcome = match connect_outcome {
@@ -3414,7 +3469,12 @@ impl Worker {
         }
         if attempt != self.engine_attempt {
             if let Some(engine) = engine {
-                engine.shutdown();
+                // A newer attempt carries the same song on.
+                if engine.carrying() && self.kept_player.is_some() {
+                    engine.close_session();
+                } else {
+                    engine.shutdown();
+                }
             }
             return;
         }
@@ -3454,6 +3514,8 @@ impl Worker {
                     });
                 }
                 let device_id = engine.device_id().to_string();
+                // The engine plays the kept song on now.
+                self.kept_player = None;
                 let engine = Arc::new(engine);
                 self.heard = Some(engine.heard());
                 if let Some(spec) = self.resume.take() {
@@ -3485,6 +3547,7 @@ impl Worker {
                     if session_drops_exhausted(&mut self.reconnects, now) {
                         self.pending_playback_grant = None;
                         self.resume = None;
+                        self.stop_kept_player();
                         let message = "Local playback keeps dropping. Re-enable it from Settings.";
                         self.fail_waiting_prerelease(message);
                         self.emit(Event::Playback(LocalPlayback::Failed(message.into())));
@@ -3498,19 +3561,26 @@ impl Worker {
                     self.waiting_for_network = false;
                     self.pending_playback_grant = None;
                     self.resume = None;
+                    self.stop_kept_player();
                     self.authorize_playback_in_browser();
                 } else {
                     self.waiting_for_network = false;
                     self.pending_playback_grant = None;
-                    self.resume = None;
                     let message = error.unwrap_or_else(|| "Local playback is unavailable".into());
                     self.fail_waiting_prerelease(&message);
                     // A dropped or reset connection is not a rejected grant:
                     // keep trying the saved one in the background (#818).
-                    if self.playback_grant.is_some()
-                        && !is_terminal_credential_error(Some(&message))
-                    {
+                    let retrying = self.playback_grant.is_some()
+                        && !is_terminal_credential_error(Some(&message));
+                    if retrying {
                         self.schedule_engine_retry();
+                    }
+                    // A song still playing out a dropped session carries on
+                    // through the retries, and the engine that connects
+                    // picks it up (#268). Anything else is forgotten.
+                    if !(retrying && self.kept_player.as_ref().is_some_and(KeptPlayer::has_song)) {
+                        self.resume = None;
+                        self.stop_kept_player();
                     }
                     if !quiet {
                         self.emit(Event::Playback(LocalPlayback::Failed(message)));
@@ -3532,6 +3602,7 @@ impl Worker {
             if let Some(engine) = self.engine.take() {
                 engine.shutdown();
             }
+            self.stop_kept_player();
             self.pending_playback_grant = None;
             let credential_stored = self.playback_grant.is_some();
             if credential_stored {
@@ -3671,8 +3742,9 @@ impl Worker {
         let Some(engine) = &self.engine else {
             return;
         };
-        if engine.interrupted().is_some() {
-            // Playback resumed or another track started.
+        if engine.interrupted().is_some() && !engine.carrying() {
+            // Playback resumed or another track started. A song the player
+            // carried through the reconnect still needs picking up.
             return;
         }
         if attempts >= 3 {
