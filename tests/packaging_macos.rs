@@ -3,11 +3,15 @@
 use std::fs;
 use std::path::PathBuf;
 
+/// A packaging file as committed. A Windows checkout may turn its line
+/// endings into CRLF; the bundle is built on macOS, from LF.
 fn packaging(file: &str) -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("packaging/macos")
         .join(file);
-    fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
+    fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("{}: {error}", path.display()))
+        .replace("\r\n", "\n")
 }
 
 #[test]
