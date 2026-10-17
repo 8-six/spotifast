@@ -360,8 +360,8 @@ random token). Use the command rather than the channel itself.
 
 ## Updates
 
-The Windows installer, Mac app, and portable Windows and Linux downloads
-update from inside Spotifast. Click the green update button to download a
+The Windows installer, Mac app, AppImage, and portable Windows and Linux
+downloads update from inside Spotifast. Click the green update button to download a
 release, then choose when to restart and install it. Settings can enable
 automatic background downloads; restarting always waits for your click.
 Closing the update window keeps a download running. You can also check for a
@@ -376,11 +376,15 @@ move Spotifast to Applications before updating it.
 
 Package-managed installations update through their package manager,
 including Homebrew, Flatpak, apt, dnf, pacman, Nix, and Cargo. Other
-installations, the AppImage among them, use the [Download page](/download/).
-Portable archives identify themselves with `spotifast-portable.txt`. On
-Windows, a portable copy keeps its settings, state and caches in the
-`spotifast-data` folder next to it, which updates leave as it is (see
-[portable copies](/settings-and-files/#portable-copies)).
+installations use the [Download page](/download/). Portable archives
+identify themselves with `spotifast-portable.txt`. On Windows, a portable
+copy keeps its settings, state and caches in the `spotifast-data` folder
+next to it, which updates leave as it is (see
+[portable copies](/settings-and-files/#portable-copies)). The AppImage
+updates itself when you own it and can write to its folder, such as
+`~/Applications`; one in a system folder or someone else's says so and
+links to the release instead. AppImage updaters such as AppImageUpdate and
+Gear Lever work as well, from the update information inside it.
 
 ## Library order
 

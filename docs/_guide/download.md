@@ -149,8 +149,14 @@ chmod +x ~/Downloads/spotifast-{{ v }}-x86_64.AppImage
 
 The AppImage bundles no libraries: like the DEB and RPM, it needs glibc 2.39
 or newer and your desktop's own libraries. Running it needs FUSE; without
-FUSE, start it with `--appimage-extract-and-run`. It does not update itself:
-download the new file when Spotifast says a release is out.
+FUSE, start it with `--appimage-extract-and-run`.
+
+From the release after 0.13.3, the AppImage updates itself like the portable
+downloads, as long as it sits in a folder of your own, such as
+`~/Applications`: Spotifast replaces the file in place and restarts it. It
+also carries update information, so AppImageUpdate, AppImageLauncher, AM and
+Gear Lever can update it too, downloading only what changed. Copies of 0.13.3
+and earlier need one more manual download.
 
 ### Other distributions
 
