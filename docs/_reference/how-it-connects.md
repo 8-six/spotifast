@@ -575,6 +575,14 @@ Pausing, stopping, or an output error releases the activity; a song playing
 on through a dropped session keeps it, and remote playback does not hold it. The activity permits idle system sleep
 and does not keep the display awake.
 
+Local playback and track loading also keep the computer from
+sleeping when idle, released at the same moments (#962): on macOS an
+activity with idle system sleep disabled (`pmset -g assertions`), on Windows
+a system power request (`powercfg /requests`), and on Linux the desktop
+portal's Inhibit request for suspend, or a systemd-logind `idle` inhibitor
+when there is no portal (`systemd-inhibit --list`). None of them keeps the
+display on, and a sleep you ask for still happens.
+
 Since 0.9.0, selecting this computer in the device picker asks
 librespot to transfer playback from the active Connect device. Spotify supplies
 the current song, position, playing or paused state, context, and queue together.

@@ -7,7 +7,7 @@
 //! without a window, and turns the conditions into a [`Budget`] for its
 //! drawing and polling here.
 
-pub use fastframe_power::{Ack, Activity, Conditions, Event, Power};
+pub use fastframe_power::{Ack, Activity, Conditions, Event, KeepAwake, Power};
 
 use crate::player::{LocalState, Playback};
 
@@ -69,7 +69,8 @@ pub fn visualiser_fps(budget: Budget, conditions: Conditions, fps: u32) -> Optio
 }
 
 /// Whether local playback is doing work the user is waiting for, which
-/// macOS must not slow down with App Nap while another app is in front:
+/// macOS must not slow down with App Nap while another app is in front,
+/// and during which the computer must not go to sleep on its own (#962):
 /// playing or loading, including a song playing on through a dropped
 /// session while the next one connects (#268). Pause, stop and an output
 /// error let the app nap again; remote playback never holds it awake.

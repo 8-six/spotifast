@@ -607,6 +607,16 @@ The panel needs playback on this computer, since only that session can read
 it. In a very narrow window the people button gives way so the playback
 controls keep their room; widen the window to bring it back.
 
+## Sleep while playing
+
+While music plays on this computer, Spotifast keeps it from going to sleep
+on its own, so a long playlist is not cut off by the idle timer. The display
+still turns off and the screen still locks as usual, and you can still put
+the computer to sleep yourself or close the lid. Pausing or stopping, or
+playing on another device, lets the computer sleep again. On Linux this asks
+the desktop (through the desktop portal, or else systemd-logind), so it
+depends on the desktop honouring the request; GNOME and KDE do.
+
 ## Google Cast playback
 
 Google Cast speakers and speaker groups appear in the device picker. Enable

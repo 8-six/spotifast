@@ -323,6 +323,9 @@ pub struct App {
     reachable: bool,
     /// Keeps local playback out of App Nap while it plays (macOS).
     playback_activity: Option<crate::power::Activity>,
+    /// Keeps the computer from going to sleep on its own while local
+    /// playback plays (#962).
+    keep_awake: Option<crate::power::KeepAwake>,
     /// What the app may spend on drawing and polling, from the power state
     /// and the window's; worked out in each logic pass.
     pub budget: crate::power::Budget,
@@ -949,6 +952,7 @@ impl App {
             follows_reachability: cfg!(target_os = "macos"),
             reachable: true,
             playback_activity: None,
+            keep_awake: None,
             budget: crate::power::Budget::default(),
             screen_hz: 0,
             motion: crate::motion::Motion::default(),
@@ -11929,8 +11933,12 @@ impl App {
         if crate::power::playback_needs_activity(&self.local) {
             self.playback_activity
                 .get_or_insert_with(|| crate::power::Activity::begin("Spotify playback"));
+            let power = &self.power;
+            self.keep_awake
+                .get_or_insert_with(|| power.keep_awake("Playing music"));
         } else {
             self.playback_activity = None;
+            self.keep_awake = None;
         }
         for event in self.power.events() {
             use crate::power::Event;
@@ -29381,22 +29389,30 @@ mod tests {
     }
 
     /// #789: one App Nap activity is held while local playback plays, and
-    /// let go once it pauses.
+    /// let go once it pauses. #962: the computer is kept awake for as long,
+    /// with no setting; the test's fixed Power keeps the hold inert.
     #[test]
     fn local_playback_holds_one_activity_while_it_plays() {
         let mut app = headless_app();
         let ctx = egui::Context::default();
         app.sync_power(&ctx);
         assert!(app.playback_activity.is_none());
+        assert!(app.keep_awake.is_none());
         app.local.connected = true;
         app.local.playback = Playback::Playing;
         app.sync_power(&ctx);
         assert!(app.playback_activity.is_some());
+        assert!(app.keep_awake.is_some());
+        assert!(
+            !app.keep_awake.as_ref().is_some_and(|awake| awake.is_held()),
+            "tests never keep the real computer awake"
+        );
         app.sync_power(&ctx);
         assert!(app.playback_activity.is_some(), "the same one, kept");
         app.local.playback = Playback::Paused;
         app.sync_power(&ctx);
         assert!(app.playback_activity.is_none());
+        assert!(app.keep_awake.is_none(), "a paused computer may sleep");
     }
 
     #[test]
