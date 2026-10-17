@@ -878,6 +878,8 @@ pub enum Event {
     Receivers(Vec<crate::zeroconf::Receiver>),
     /// This computer's audio outputs, by name, for the device picker.
     OutputDevices(Result<Vec<String>, String>),
+    /// Cast advertisements ready before the final browse/probe reconciliation.
+    ReceiversProgress(crate::zeroconf::ReceiverUpdates),
     ReceiverActivated {
         name: String,
         result: Result<(), String>,
@@ -1638,6 +1640,8 @@ struct Worker {
     api: Arc<ApiGateway>,
     made_for_you: Arc<crate::made_for_you::MadeForYou>,
     connect: Arc<crate::sonos::Controller>,
+    /// Reopening or refreshing the picker reuses an in-flight browse.
+    receiver_discovery: Option<tokio::task::JoinHandle<()>>,
     background_session: Arc<tokio::sync::Semaphore>,
     art: ArtLoader,
     events: std::sync::mpsc::Sender<Event>,
@@ -1698,6 +1702,27 @@ struct Worker {
     authorize_if_rejected: bool,
 }
 
+/// A failed Connect probe setup must still reconcile departed provisional rows.
+fn receiver_snapshot(
+    receivers: Vec<crate::zeroconf::Receiver>,
+    resolve: impl FnOnce(
+        Vec<crate::zeroconf::Receiver>,
+    ) -> anyhow::Result<Vec<crate::zeroconf::Receiver>>,
+) -> Vec<crate::zeroconf::Receiver> {
+    let cast = receivers
+        .iter()
+        .filter(|receiver| receiver.cast)
+        .cloned()
+        .collect();
+    match resolve(receivers) {
+        Ok(receivers) => receivers,
+        Err(error) => {
+            log::debug!("no receivers found on the network: {error}");
+            cast
+        }
+    }
+}
+
 impl Worker {
     /// Initialize account-scoped dispatch state, Home reader and session background budget.
     #[allow(clippy::too_many_arguments)]
@@ -1734,6 +1759,7 @@ impl Worker {
             api: Arc::new(ApiGateway::new(http.clone(), activity)),
             made_for_you: Arc::new(crate::made_for_you::MadeForYou::new(http.clone())),
             connect: Arc::default(),
+            receiver_discovery: None,
             background_session: Arc::new(tokio::sync::Semaphore::new(4)),
             http,
             art,
@@ -3657,22 +3683,39 @@ impl Worker {
 
     /// Browses for receivers Spotify's device list does not know about. The
     /// browse blocks, so it runs off the runtime's worker threads.
-    fn discover_receivers(&self) {
+    fn discover_receivers(&mut self) {
+        if self
+            .receiver_discovery
+            .as_ref()
+            .is_some_and(|task| !task.is_finished())
+        {
+            return;
+        }
         let events = self.events.clone();
         let waker = self.waker.clone();
         let connect = Arc::clone(&self.connect);
-        tokio::task::spawn_blocking(move || {
-            match crate::zeroconf::discover(std::time::Duration::from_secs(3))
-                .and_then(crate::zeroconf::resolve_receivers)
-            {
-                Ok(receivers) => {
-                    connect.remember(&receivers);
-                    let _ = events.send(Event::Receivers(receivers));
-                    waker.wake();
-                }
-                Err(error) => log::debug!("no receivers found on the network: {error}"),
-            }
-        });
+        let updates = crate::zeroconf::ReceiverUpdates::default();
+        self.receiver_discovery =
+            Some(tokio::task::spawn_blocking(
+                move || match crate::zeroconf::discover_with_updates(
+                    std::time::Duration::from_secs(3),
+                    |receivers| {
+                        if updates.publish(receivers) {
+                            let _ = events.send(Event::ReceiversProgress(updates.clone()));
+                            waker.wake();
+                        }
+                    },
+                )
+                .map(|receivers| receiver_snapshot(receivers, crate::zeroconf::resolve_receivers))
+                {
+                    Ok(receivers) => {
+                        connect.remember(&receivers);
+                        let _ = events.send(Event::Receivers(receivers));
+                        waker.wake();
+                    }
+                    Err(error) => log::debug!("no receivers found on the network: {error}"),
+                },
+            ));
     }
 
     /// Sends the stored playback credential to a receiver so it can sign in.
@@ -6497,6 +6540,40 @@ fn playback_credentials(account: Option<AccountId>, access_token: String) -> Opt
 
 #[cfg(test)]
 mod authorization_tests {
+    #[test]
+    fn failed_connect_resolution_keeps_only_current_cast_results() {
+        let cast = crate::zeroconf::Receiver {
+            name: "Current Cast".into(),
+            device_id: Some("cast".into()),
+            address: "192.0.2.1".parse().unwrap(),
+            port: 8009,
+            path: "/".into(),
+            cast: true,
+        };
+        let connect = crate::zeroconf::Receiver {
+            cast: false,
+            ..cast.clone()
+        };
+        let final_rows = receiver_snapshot(vec![connect, cast.clone()], |_| {
+            Err(anyhow::anyhow!("HTTP client initialization failed"))
+        });
+        assert_eq!(final_rows, [cast]);
+        // A service removed during the browse must not survive through progress.
+        assert!(receiver_snapshot(Vec::new(), |_| Err(anyhow::anyhow!("failed"))).is_empty());
+        assert!(receiver_snapshot(final_rows, |_| Ok(Vec::new())).is_empty());
+    }
+
+    #[test]
+    fn opening_the_picker_again_does_not_start_a_second_receiver_scan() {
+        let (runtime, mut worker, _) = worker("coalesce-receiver-scan");
+        let _entered = runtime.enter();
+        let pending = runtime.spawn(std::future::pending::<()>());
+        let id = pending.id();
+        worker.receiver_discovery = Some(pending);
+        worker.discover_receivers();
+        assert_eq!(worker.receiver_discovery.as_ref().unwrap().id(), id);
+        worker.receiver_discovery.take().unwrap().abort();
+    }
     use super::*;
 
     #[test]
