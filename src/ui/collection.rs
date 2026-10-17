@@ -388,23 +388,7 @@ pub fn actions_row(
                     }
                     if let Some((page, loading)) = &actions.reload {
                         widgets::menu_separator(ui, &palette);
-                        let clicked = ui
-                            .add_enabled_ui(!loading, |ui| {
-                                widgets::menu_item(
-                                    ui,
-                                    &palette,
-                                    Some(Icon::Refresh),
-                                    &if *loading {
-                                        gettext(locale, "Refreshing…")
-                                    } else {
-                                        gettext(locale, "Refresh")
-                                    },
-                                )
-                            })
-                            .inner;
-                        if clicked {
-                            app.actions.push(Action::Reload(page.clone()));
-                        }
+                        refresh_menu_item(app, ui, page, *loading);
                     }
                 });
         }
@@ -423,6 +407,30 @@ pub fn actions_row(
         }
     });
     ui.add_space(14.0);
+}
+
+/// A page's **Refresh** menu item, which reloads it from Spotify. It reads
+/// **Refreshing…** and is disabled while the page is loading.
+pub fn refresh_menu_item(app: &mut App, ui: &mut egui::Ui, page: &Page, loading: bool) {
+    let palette = app.palette;
+    let locale = app.locale;
+    let clicked = ui
+        .add_enabled_ui(!loading, |ui| {
+            widgets::menu_item(
+                ui,
+                &palette,
+                Some(Icon::Refresh),
+                &if loading {
+                    gettext(locale, "Refreshing…")
+                } else {
+                    gettext(locale, "Refresh")
+                },
+            )
+        })
+        .inner;
+    if clicked {
+        app.actions.push(Action::Reload(page.clone()));
+    }
 }
 
 /// A track table with virtualised rows and paging.

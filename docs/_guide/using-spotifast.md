@@ -152,6 +152,11 @@ filtering and sorting stay visible. Spotifast finishes saving your edits before
 loading changes from Spotify. If loading fails, your songs stay visible and
 you can choose **Retry**.
 
+A podcast's **…** menu has the same **Refresh**. It asks Spotify for the
+podcast again instead of reusing the episodes loaded earlier, so new
+episodes appear without restarting Spotifast. The episodes already shown
+stay until the new list arrives.
+
 ## Playing from the sidebar
 
 Double-click a playlist, Liked Songs, album, artist, or podcast row in the

@@ -5134,6 +5134,18 @@ impl App {
                 self.artist_pages.remove(id);
             }
             Page::Show(id) => {
+                // Refresh keeps the podcast and its episodes on screen; the
+                // new episode list replaces them when it arrives.
+                if self.network_reachable
+                    && let Some(page) = self.show_pages.get_mut(id)
+                    && matches!(page.show, Loadable::Loaded(_))
+                {
+                    page.episodes.loading = true;
+                    page.episodes.error = None;
+                    page.episodes.window_request = None;
+                    self.backend.api(ApiRequest::Show { id: id.clone() });
+                    return;
+                }
                 self.show_pages.remove(id);
             }
             Page::Radio(seed) => {
@@ -7315,10 +7327,16 @@ impl App {
                                 page.episodes.absorb(0, episodes);
                             }
                             page.show = Loadable::Loaded(show);
-                            if !page.episodes.loaded_once {
+                            // A first load, or a refresh whose answer carried
+                            // no episodes, asks for the list from the start.
+                            if !page.episodes.loaded_once || page.episodes.loading {
                                 page.episodes.loading = true;
                                 self.backend.api(ApiRequest::ShowEpisodes { id, offset: 0 });
                             }
+                        }
+                        // A failed refresh keeps the podcast on screen.
+                        Err(error) if matches!(page.show, Loadable::Loaded(_)) => {
+                            page.episodes.fail(friendly_api_error(self.locale, &error));
                         }
                         Err(error) => {
                             page.show = Loadable::Failed(friendly_api_error(self.locale, &error))
@@ -19935,6 +19953,84 @@ mod tests {
             "spotify:track:new",
             "a failed refresh keeps the songs"
         );
+        app.backend.shutdown();
+    }
+
+    /// Refresh on a podcast keeps its episodes on screen, asks Spotify
+    /// again instead of reusing the loaded page, puts the new episodes in
+    /// place of the old ones, and keeps the podcast if the refresh fails.
+    #[test]
+    fn refreshing_a_podcast_replaces_its_episodes_in_place() {
+        use crate::api::models::{Episode, Page as ApiPage, Show};
+        let ctx = egui::Context::default();
+        let mut app = headless_app();
+        app.auth = AuthStatus::Connected {
+            username: "test".into(),
+        };
+        let episodes = |ids: &[&str]| ApiPage {
+            items: ids
+                .iter()
+                .map(|id| Episode {
+                    id: (*id).into(),
+                    uri: format!("spotify:episode:{id}"),
+                    ..Episode::default()
+                })
+                .collect(),
+            total: ids.len() as u32,
+            limit: 50,
+            offset: 0,
+            next: None,
+        };
+        let show = |ids: &[&str]| Show {
+            id: "sh1".into(),
+            uri: "spotify:show:sh1".into(),
+            name: "Rework".into(),
+            episodes: Some(episodes(ids)),
+            ..Show::default()
+        };
+        let shown = |app: &App| {
+            app.show_pages["sh1"]
+                .episodes
+                .items
+                .iter()
+                .map(|episode| episode.id.clone())
+                .collect::<Vec<_>>()
+        };
+        app.apply(Action::Open(Page::Show("sh1".into())), &ctx);
+        app.handle_api(ApiResponse::Show {
+            id: "sh1".into(),
+            result: Ok(show(&["old"])),
+        });
+        assert_eq!(shown(&app), ["old"]);
+
+        app.apply(Action::Reload(Page::Show("sh1".into())), &ctx);
+        let page = &app.show_pages["sh1"];
+        assert!(page.episodes.loading, "the menu item reads Refreshing…");
+        assert!(
+            matches!(page.show, Loadable::Loaded(_)),
+            "the podcast stays"
+        );
+        assert_eq!(shown(&app), ["old"], "the episodes stay while it loads");
+
+        app.handle_api(ApiResponse::Show {
+            id: "sh1".into(),
+            result: Ok(show(&["new", "old"])),
+        });
+        assert_eq!(shown(&app), ["new", "old"], "the new episode appears");
+        assert!(!app.show_pages["sh1"].episodes.loading);
+
+        app.apply(Action::Reload(Page::Show("sh1".into())), &ctx);
+        app.handle_api(ApiResponse::Show {
+            id: "sh1".into(),
+            result: Err(crate::api::client::ApiError::Network("offline".into())),
+        });
+        let page = &app.show_pages["sh1"];
+        assert!(
+            matches!(page.show, Loadable::Loaded(_)),
+            "a failure keeps it"
+        );
+        assert_eq!(shown(&app), ["new", "old"]);
+        assert!(page.episodes.error.is_some(), "and offers Retry");
         app.backend.shutdown();
     }
 
