@@ -156,20 +156,20 @@ compiler, and libclang. To build without MilkDrop or those tools, add
 ALSA, PulseAudio or PipeWire, and the windowing libraries. On Arch:
 
 ```bash
-sudo pacman -S --needed alsa-lib libpulse libxkbcommon wayland cmake clang
+sudo pacman -S --needed alsa-lib pipewire libpulse libxkbcommon wayland cmake clang
 ```
 
 On Debian or Ubuntu:
 
 ```bash
-sudo apt install libasound2-dev libpulse-dev libxkbcommon-dev libwayland-dev \
+sudo apt install libasound2-dev libpipewire-0.3-dev libpulse-dev libxkbcommon-dev libwayland-dev \
   cmake clang libclang-dev
 ```
 
 On Fedora:
 
 ```bash
-sudo dnf install alsa-lib-devel pulseaudio-libs-devel libxkbcommon-devel \
+sudo dnf install alsa-lib-devel pipewire-devel pulseaudio-libs-devel libxkbcommon-devel \
   wayland-devel cmake clang clang-devel
 ```
 
