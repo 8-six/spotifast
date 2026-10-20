@@ -690,6 +690,10 @@ of songs Spotify picks to go with it, without starting playback. Playlist,
 album, and artist menus have **Go to playlist radio**, **Go to album radio**,
 and **Go to artist radio**.
 
+A song radio starts its list with the song it is based on, once, followed by
+the rest of Spotify's mix in its order. Shuffle still decides what plays
+first. If Spotify will not provide the seed song, the radio leaves it out.
+
 Spotify mixes a radio afresh each time it is asked, so the page keeps the
 songs it shows: **Play**, **Shuffle**, and a double-clicked row play those
 songs, and the queue names the radio. Choose **Refresh** in the page's **…**

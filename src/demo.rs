@@ -489,12 +489,16 @@ pub fn populate(app: &mut App) {
         .absorb(0, page((0..15).map(|index| episode(index, 0)).collect()));
     app.show_pages.insert("sh0".into(), show_page);
 
-    // Radio pages, for a song and for a playlist.
-    for (seed, first) in [("spotify:track:trk0", 1), ("spotify:playlist:pl1", 8)] {
+    // Radio pages, for a song and for a playlist. A song radio starts with
+    // the song it is based on; a playlist radio has no song seed.
+    for (seed, songs) in [
+        ("spotify:track:trk0", tracks[..30].to_vec()),
+        ("spotify:playlist:pl1", tracks[8..38].to_vec()),
+    ] {
         app.radio_pages.insert(
             seed.into(),
             RadioPage {
-                songs: Loadable::Loaded(tracks.iter().skip(first).take(30).cloned().collect()),
+                songs: Loadable::Loaded(songs),
                 ..RadioPage::default()
             },
         );
