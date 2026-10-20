@@ -628,14 +628,23 @@ snap the window, and drag a window edge or corner to resize it.
 played on this computer goes: the system's default output, or a sound card,
 headset, HDMI output, or virtual device such as VoiceMeeter. Click it to list
 this computer's outputs, then pick one; local playback restarts on it at the
-same place in the song. **System default** follows the system again. The
-choice is saved as `audio_device` in `settings.json`. While a saved output is
-unplugged, music plays through the system default, and the output stays
-listed so you can see and change the choice.
+same place in the song. **System default** follows the system again, and moves
+with it when the default output changes. The choice is saved as `audio_device`
+in `settings.json`, by the device's own id, so it survives renames and
+reordering. While a saved output is unplugged, music plays through the system
+default, and the output stays listed so you can see and change the choice.
 
-On Linux, Spotifast plays through PulseAudio (or PipeWire's PulseAudio
-service) by default, and the desktop's sound settings choose its output, so
-the picker shows **Audio output** only when `audio_backend` is `rodio`.
+On Linux, Spotifast plays through PipeWire when it is running, otherwise
+through a PulseAudio server, and otherwise straight to ALSA. The picker lists
+that sound system's outputs. Spotifast 0.13.3 and earlier saved an output by
+its name: a name an output still has is kept, and saved by its id the next
+time music plays there. One that no output has any more, such as ALSA's
+**PipeWire Sound Server**, plays through the system default until you choose
+again.
+
+Volume mixers do not show the stream as **Spotifast** yet, because the audio
+library cannot name it: on PipeWire it is the program `spotifast` playing
+`cpal-playback-…`, and on PulseAudio the client `cpal-pulseaudio-…`.
 
 ## Listening activity
 

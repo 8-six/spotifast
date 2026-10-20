@@ -446,7 +446,7 @@ pub struct App {
     activating_play: bool,
     pub devices_loading: bool,
     /// This computer's audio outputs, listed when the device picker asks.
-    pub output_devices: Loadable<Vec<String>>,
+    pub output_devices: Loadable<Vec<fastframe_audio::DeviceInfo>>,
     devices_fetched_at: Option<Instant>,
     pub selected_device: Option<String>,
     pub queue: Loadable<Queue>,
@@ -1439,6 +1439,16 @@ impl App {
         } else {
             #[cfg(test)]
             self.autostart_sent.push(request);
+        }
+    }
+
+    /// Local playback opened on the device an older build saved by `name`:
+    /// the setting holds its id from now on, unless another output was
+    /// chosen meanwhile. Nothing restarts; the device is already playing.
+    pub(crate) fn on_audio_device_found(&mut self, name: &str, id: String) {
+        if self.settings.audio_device.as_deref() == Some(name) {
+            self.settings.audio_device = Some(id);
+            self.mark_settings_dirty();
         }
     }
 
@@ -2444,9 +2454,10 @@ impl App {
                 }
                 Event::Receivers(receivers) => self.receivers = receivers,
                 Event::Autostart { request, result } => self.on_autostart(request, result),
+                Event::AudioDeviceFound { name, id } => self.on_audio_device_found(&name, id),
                 Event::OutputDevices(result) => {
                     self.output_devices = match result {
-                        Ok(names) => Loadable::Loaded(names),
+                        Ok(devices) => Loadable::Loaded(devices),
                         Err(error) => {
                             log::warn!("couldn't list audio outputs: {error}");
                             Loadable::Failed(error)
@@ -12821,7 +12832,6 @@ pub fn engine_config(
         normalisation: settings.normalisation,
         autoplay: settings.autoplay,
         gapless: settings.gapless,
-        backend: settings.platform_backend(),
         buffer_ms: settings.audio_buffer_ms,
         audio_device: settings
             .audio_device
