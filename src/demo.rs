@@ -1175,7 +1175,7 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                 app.show_queue_panel = true;
                 app.queue_tab = QueueTab::Recents;
                 app.recents.items.clear();
-                app.recents_view.clear();
+                app.recents_view = std::sync::Arc::from([]);
                 app.recents.complete = true;
                 app.recents.loaded_once = true;
                 app.recents.loading = surface == "recents-loading";
@@ -2447,7 +2447,7 @@ mod tests {
             }
             app.queue_tab = QueueTab::Recents;
             app.recents.items.clear();
-            app.recents_view.clear();
+            app.recents_view = std::sync::Arc::from([]);
             app.recents.loaded_once = true;
             app.recents.complete = true;
             for (loading, error, sources) in [
