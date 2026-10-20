@@ -989,6 +989,19 @@ impl From<fastframe_audio::OpenError> for OpenError {
     }
 }
 
+/// The stream's name in the system's volume mixer, under the app's.
+const MEDIA_NAME: &str = "Spotify playback";
+
+/// Names Spotifast, with the desktop entry's icon, in the system's volume
+/// mixer (PipeWire and PulseAudio) for every output opened afterwards. Call
+/// once at startup, before any output is listed or opened.
+pub fn name_in_mixers() {
+    let _ = fastframe_audio::set_app_info(fastframe_audio::AppInfo {
+        name: "Spotifast".to_owned(),
+        icon: Some("spotifast".to_owned()),
+    });
+}
+
 /// What the output asks of the device: Spotify's stereo 44.1 kHz first, so
 /// nothing is converted, then whatever the device takes. A device that has
 /// gone falls back to the default. The fixed buffer addresses Windows
@@ -1005,6 +1018,10 @@ fn output_options(device: fastframe_audio::Device, buffer_ms: u32) -> OutputOpti
             buffer_ms,
         )))),
         follow_default: true,
+        // Fixed while the stream is open, so not the song title. No role:
+        // the sound server would share a role's remembered volume with
+        // every other app playing music.
+        media_name: Some(MEDIA_NAME.to_owned()),
         ..OutputOptions::default()
     }
 }

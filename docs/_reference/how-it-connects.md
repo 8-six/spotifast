@@ -606,9 +606,10 @@ requests go through the playback session and use no Web API quota.
 Local playback has one output on every platform, fastframe-audio: CoreAudio on
 macOS, WASAPI on Windows, and on Linux PipeWire when it is running, otherwise a
 PulseAudio server, otherwise ALSA directly. It talks only to the local sound
-system. The stream is not named **Spotifast** in system mixers yet: on PipeWire
-its node takes the program's name, `spotifast`, with `cpal-playback-<pid>` as
-its media name, and on PulseAudio the client is `cpal-pulseaudio-<pid>`.
+system. On PipeWire and PulseAudio the stream is named **Spotifast** in system
+mixers (`application.name`, with the `spotifast` icon), with **Spotify
+playback** as its media name and no media role, so its volume is remembered
+for Spotifast rather than shared with other music players.
 The same session checks releases that the Web API calls `single`, so confirmed
 EPs can carry their precise label. Spotifast deduplicates these checks while
 the app session is active. If the engine reconnects, an interrupted check may

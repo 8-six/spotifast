@@ -642,9 +642,9 @@ time music plays there. One that no output has any more, such as ALSA's
 **PipeWire Sound Server**, plays through the system default until you choose
 again.
 
-Volume mixers do not show the stream as **Spotifast** yet, because the audio
-library cannot name it: on PipeWire it is the program `spotifast` playing
-`cpal-playback-…`, and on PulseAudio the client `cpal-pulseaudio-…`.
+Volume mixers show the stream as **Spotifast**, with its icon, playing
+**Spotify playback**, on PipeWire and PulseAudio. The mixer remembers its
+volume for Spotifast alone.
 
 ## Listening activity
 

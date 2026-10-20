@@ -352,6 +352,8 @@ pub(crate) fn run() -> eframe::Result<()> {
     // helper, which installs and exits; otherwise the receipt and error an
     // update relaunch carries are taken out of the arguments.
     let launch = fastframe_update::intercept(&spotifast::updates::CONFIG);
+    // Before any output is listed or opened.
+    spotifast::sink::name_in_mixers();
     // A MilkDrop child launch is a bare visualiser window, not the app: it has
     // its own event loop and OpenGL context, reads the sound from a shared
     // buffer, and never touches the app's state. Handle it before anything
