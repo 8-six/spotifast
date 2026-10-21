@@ -242,6 +242,22 @@ fn proxy_mode_is_system(mode: &ProxyMode) -> bool {
     *mode == ProxyMode::System
 }
 
+/// How often the banner suggesting a personal app has appeared. It shows at
+/// most once a day, and never again after the listener closed it
+/// [`SlowAppBanner::MAX_DISMISSALS`] times.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SlowAppBanner {
+    /// When it last appeared, as an RFC 3339 timestamp.
+    pub shown_at: Option<String>,
+    /// How many times the listener closed it.
+    pub dismissals: u8,
+}
+
+impl SlowAppBanner {
+    pub const MAX_DISMISSALS: u8 = 3;
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -330,6 +346,9 @@ pub struct Settings {
     pub personal_app_nudge_at: Option<String>,
     /// The listener has dismissed or followed the personal-app introduction.
     pub personal_app_intro_seen: bool,
+    /// When the "Spotify is being slow" banner last appeared and how often
+    /// the listener closed it. Kept by the app, not chosen in Settings.
+    pub slow_app_banner: SlowAppBanner,
     /// Local playback has been authorized at least once on this machine, so
     /// the app can resume it silently instead of prompting.
     pub playback_authorized: bool,
@@ -499,6 +518,7 @@ impl Default for Settings {
             web_client_id: None,
             personal_app_nudge_at: None,
             personal_app_intro_seen: false,
+            slow_app_banner: SlowAppBanner::default(),
             playback_authorized: false,
             keep_playing_in_background: true,
             tray_icon: TrayIcon::Colour,
@@ -1776,6 +1796,28 @@ mod tests {
             settings.personal_app_nudge_at
         );
         assert!(restored.personal_app_intro_seen);
+    }
+
+    #[test]
+    fn slow_app_banner_state_is_backward_compatible_and_round_trips() {
+        let older: Settings = serde_json::from_str(r#"{"personal_app_intro_seen":true}"#).unwrap();
+        assert_eq!(older.slow_app_banner, super::SlowAppBanner::default());
+        assert_eq!(older.slow_app_banner.dismissals, 0);
+        let partial: Settings =
+            serde_json::from_str(r#"{"slow_app_banner":{"dismissals":2}}"#).unwrap();
+        assert_eq!(partial.slow_app_banner.dismissals, 2);
+        assert_eq!(partial.slow_app_banner.shown_at, None);
+
+        let settings = Settings {
+            slow_app_banner: super::SlowAppBanner {
+                shown_at: Some("2026-10-21T09:00:00Z".into()),
+                dismissals: 1,
+            },
+            ..Settings::default()
+        };
+        let json = serde_json::to_string(&settings).unwrap();
+        let restored: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.slow_app_banner, settings.slow_app_banner);
     }
 }
 

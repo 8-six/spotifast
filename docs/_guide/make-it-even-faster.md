@@ -32,8 +32,13 @@ a connection registered to your account on Spotify's developer website.
 You do not need to write code or install another player.
 
 Spotifast offers this setup once after you sign in with Premium. Choose
-**Set up personal app** to open Settings, or **Keep shared app** to continue
+**Set up personal app** to open Settings, or **Not now** to continue
 as you are. You can set it up later in Settings.
+
+If Spotify later tells the shared connection it is getting too many
+requests, a banner at the top of the page says Spotify is being slow and
+offers the same setup. It appears at most once a day, and after you close it
+three times it does not come back.
 
 A personal app gives many of your searches and library requests a separate
 allowance. Creating one is free and takes a few minutes, and Spotify requires

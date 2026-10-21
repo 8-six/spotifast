@@ -142,6 +142,10 @@ still asks for all six types and nothing about a search changes.
 Since 0.8.0, verified Premium accounts using shared access see a
 one-time introduction to that option. Setup and dismissal are remembered in
 settings. The prompt uses the existing account profile and adds no request.
+When Spotify answers a shared-app Web API request with "too
+many requests" (HTTP 429), those accounts also see a banner offering the same
+setup, at most once a day and never again after it was closed three times.
+It reads the answer the request already received and adds no request.
 
 Since 0.8.0, explicitly sorting a Library section loads its remaining
 pages through the existing Web API grant, one at a time, while loaded entries

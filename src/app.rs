@@ -72,6 +72,11 @@ const TOAST_LIFETIME: Duration = Duration::from_millis(3200);
 /// from delayed repaints, so 33 ms drives roughly one frame per 16 ms.
 const TOAST_FRAME: Duration = Duration::from_millis(33);
 const OPTIMISTIC_HOLD: Duration = Duration::from_millis(2500);
+/// The banner suggesting a personal app appears at most this often.
+const SLOW_BANNER_INTERVAL: jiff::SignedDuration = jiff::SignedDuration::from_hours(24);
+/// A "too many requests" answer older than this no longer brings up the
+/// banner: Spotify has likely caught up by the time a dialog closes.
+const SLOW_BANNER_FRESH: Duration = Duration::from_secs(60);
 
 /// How long a newly started context remains visible while Spotify catches up.
 /// During local takeover, Spotify may briefly alternate between old and new
@@ -658,6 +663,12 @@ pub struct App {
     last_unavailable_reconnect: Option<Instant>,
     /// The Premium notice has been shown for this sign-in.
     premium_notice_shown: bool,
+    /// The "Spotify is being slow" banner is up at the top of the page.
+    pub slow_banner: bool,
+    /// The shared app's rate-limit count last read from the backend.
+    shared_rate_limits_seen: u64,
+    /// When Spotify last told the shared app it sent too many requests.
+    shared_rate_limited_at: Option<Instant>,
     /// Context shown immediately after play, until Spotify confirms it. An
     /// empty URI means a plain track list, whose lack of a context must also
     /// hide stale state.
@@ -1224,6 +1235,9 @@ impl App {
             unavailable_at: Vec::new(),
             last_unavailable_reconnect: None,
             premium_notice_shown: false,
+            slow_banner: false,
+            shared_rate_limits_seen: 0,
+            shared_rate_limited_at: None,
             assumed_context: None,
             last_now_playing_uri: None,
             last_now_playing_sequence: 0,
@@ -2718,6 +2732,7 @@ impl App {
                 if matches!(self.dialog, Some(Dialog::PersonalAppIntro)) {
                     self.dialog = None;
                 }
+                self.slow_banner = false;
                 self.uploaded_covers.clear();
                 self.sign_in_url = None;
                 self.web_app = None;
@@ -3706,6 +3721,12 @@ impl App {
             self.played_row = None;
         }
         self.maybe_suggest_personal_app();
+        let rate_limits = self.backend.activity().shared_rate_limits();
+        if rate_limits != self.shared_rate_limits_seen {
+            self.shared_rate_limits_seen = rate_limits;
+            self.shared_rate_limited_at = Some(Instant::now());
+        }
+        self.maybe_show_slow_banner(jiff::Timestamp::now());
 
         // Not on a metered connection or without internet: the check waits
         // for a connection that will do, and checking by hand still works.
@@ -11020,10 +11041,15 @@ impl App {
             }
             Action::CloseDialog => {
                 if matches!(self.dialog, Some(Dialog::PersonalAppIntro)) {
-                    self.settings.personal_app_intro_seen = true;
-                    self.settings_dirty = true;
+                    self.intro_answered(jiff::Timestamp::now());
                 }
                 self.dialog = None;
+            }
+            Action::CloseSlowBanner => {
+                self.slow_banner = false;
+                let banner = &mut self.settings.slow_app_banner;
+                banner.dismissals = banner.dismissals.saturating_add(1);
+                self.settings_dirty = true;
             }
             Action::CreatePlaylist {
                 name,
@@ -11224,8 +11250,12 @@ impl App {
                 ));
             }
             Action::OpenPersonalAppSetup => {
+                if matches!(self.dialog, Some(Dialog::PersonalAppIntro)) {
+                    self.intro_answered(jiff::Timestamp::now());
+                }
                 self.settings.personal_app_intro_seen = true;
                 self.settings_dirty = true;
+                self.slow_banner = false;
                 self.dialog = None;
                 self.open(Page::Settings);
                 // A saved search could be hiding the Client ID field the
@@ -11965,25 +11995,68 @@ impl App {
         });
     }
 
+    /// A connected Premium listener without a personal app, who could set
+    /// one up, and nothing else is asking for their attention.
+    fn could_suggest_personal_app(&self) -> bool {
+        self.settings
+            .web_client_id
+            .as_deref()
+            .is_none_or(|id| id.trim().is_empty())
+            && self.web_app.is_none()
+            && self.is_connected()
+            && !self.offline
+            && self.user.as_ref().and_then(|user| user.product.as_deref()) == Some("premium")
+            && self.dialog.is_none()
+            && !self.show_devices
+            && !self.settings.winamp_window
+            && self.page() != &Page::Settings
+    }
+
     fn maybe_suggest_personal_app(&mut self) {
-        if self.settings.personal_app_intro_seen
-            || self
+        if self.settings.personal_app_intro_seen || !self.could_suggest_personal_app() {
+            return;
+        }
+        self.dialog = Some(Dialog::PersonalAppIntro);
+    }
+
+    /// The listener answered the introduction: it counts as today's
+    /// suggestion, so the banner does not follow straight after it.
+    fn intro_answered(&mut self, now: jiff::Timestamp) {
+        self.settings.personal_app_intro_seen = true;
+        self.settings.slow_app_banner.shown_at = Some(now.to_string());
+        self.settings_dirty = true;
+    }
+
+    /// Brings up the "Spotify is being slow" banner after Spotify recently
+    /// told the shared app it sent too many requests: at most once a day,
+    /// and never after the listener closed it three times.
+    fn maybe_show_slow_banner(&mut self, now: jiff::Timestamp) {
+        if self.slow_banner {
+            // A personal app arrived, or the account changed.
+            let personal = self
                 .settings
                 .web_client_id
                 .as_deref()
                 .is_some_and(|id| !id.trim().is_empty())
-            || self.web_app.is_some()
-            || !self.is_connected()
-            || self.offline
-            || self.user.as_ref().and_then(|user| user.product.as_deref()) != Some("premium")
-            || self.dialog.is_some()
-            || self.show_devices
-            || self.settings.winamp_window
-            || self.page() == &Page::Settings
+                || self.web_app.is_some();
+            if personal || !self.is_connected() {
+                self.slow_banner = false;
+            }
+            return;
+        }
+        let banner = &self.settings.slow_app_banner;
+        if !self
+            .shared_rate_limited_at
+            .is_some_and(|at| at.elapsed() < SLOW_BANNER_FRESH)
+            || banner.dismissals >= crate::settings::SlowAppBanner::MAX_DISMISSALS
+            || !slow_banner_due(banner.shown_at.as_deref(), now)
+            || !self.could_suggest_personal_app()
         {
             return;
         }
-        self.dialog = Some(Dialog::PersonalAppIntro);
+        self.slow_banner = true;
+        self.settings.slow_app_banner.shown_at = Some(now.to_string());
+        self.settings_dirty = true;
     }
 
     /// Selected row indices for `page`.
@@ -12893,6 +12966,16 @@ pub(crate) fn local_file_key(uri: &str) -> String {
     librespot_core::SpotifyUri::from_uri(uri)
         .map(|uri| uri.to_uri())
         .unwrap_or_default()
+}
+
+/// Whether a day has passed since the banner last appeared. A missing,
+/// unreadable or future time (a clock set back) does not hold it back.
+fn slow_banner_due(last: Option<&str>, now: jiff::Timestamp) -> bool {
+    let Some(last) = last.and_then(|value| value.parse::<jiff::Timestamp>().ok()) else {
+        return true;
+    };
+    let elapsed = now.duration_since(last);
+    elapsed < jiff::SignedDuration::ZERO || elapsed >= SLOW_BANNER_INTERVAL
 }
 
 pub fn engine_config(
@@ -20919,6 +21002,146 @@ mod tests {
         app.handle_auth(AuthStatus::SignedOut);
         assert!(app.dialog.is_none());
         assert!(!app.settings.personal_app_intro_seen);
+    }
+
+    fn premium_on_shared_app(name: &str) -> App {
+        let mut app = test_app(name);
+        app.auth = AuthStatus::Connected {
+            username: "listener".into(),
+        };
+        app.user = Some(User {
+            product: Some("premium".into()),
+            ..User::default()
+        });
+        app.settings.personal_app_intro_seen = true;
+        app
+    }
+
+    #[test]
+    fn a_rate_limited_shared_app_brings_up_the_slow_banner_for_premium() {
+        let mut app = premium_on_shared_app("slow-banner");
+        let now: jiff::Timestamp = "2026-10-21T09:00:00Z".parse().unwrap();
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner, "no rate limit, no banner");
+
+        app.shared_rate_limited_at = Some(Instant::now());
+        app.maybe_show_slow_banner(now);
+        assert!(app.slow_banner);
+        assert!(app.dialog.is_none(), "the banner is not a dialog");
+        assert_eq!(
+            app.settings.slow_app_banner.shown_at.as_deref(),
+            Some("2026-10-21T09:00:00Z")
+        );
+        assert!(app.settings_dirty, "the time it appeared must be saved");
+
+        app.apply(Action::CloseSlowBanner, &egui::Context::default());
+        assert!(!app.slow_banner);
+        assert_eq!(app.settings.slow_app_banner.dismissals, 1);
+
+        // An old rate limit does not bring it back once a day has passed.
+        let tomorrow = now + SLOW_BANNER_INTERVAL;
+        app.shared_rate_limited_at = Instant::now().checked_sub(SLOW_BANNER_FRESH);
+        app.maybe_show_slow_banner(tomorrow);
+        assert!(!app.slow_banner);
+    }
+
+    #[test]
+    fn the_slow_banner_waits_for_premium_on_the_shared_app() {
+        let now: jiff::Timestamp = "2026-10-21T09:00:00Z".parse().unwrap();
+        let mut app = premium_on_shared_app("slow-banner-eligibility");
+        app.shared_rate_limited_at = Some(Instant::now());
+        for product in [None, Some("free"), Some("open")] {
+            app.user = Some(User {
+                product: product.map(str::to_string),
+                ..User::default()
+            });
+            app.maybe_show_slow_banner(now);
+            assert!(!app.slow_banner, "{product:?}");
+        }
+        app.user = Some(User {
+            product: Some("premium".into()),
+            ..User::default()
+        });
+        app.settings.web_client_id = Some("personal-client".into());
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner, "a configured personal app");
+        app.settings.web_client_id = None;
+        app.web_app = Some("personal-client".into());
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner, "an active personal app");
+        app.web_app = None;
+        app.offline = true;
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner, "offline");
+        app.offline = false;
+        app.dialog = Some(Dialog::Shortcuts);
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner, "a dialog is up");
+        app.dialog = None;
+        app.open(Page::Settings);
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner, "on the Settings page");
+        app.open(Page::Home);
+        app.maybe_show_slow_banner(now);
+        assert!(app.slow_banner);
+
+        // Setting up a personal app takes the banner away.
+        app.web_app = Some("personal-client".into());
+        app.maybe_show_slow_banner(now);
+        assert!(!app.slow_banner);
+        assert_eq!(app.settings.slow_app_banner.dismissals, 0);
+    }
+
+    #[test]
+    fn the_slow_banner_shows_once_a_day_and_stops_after_three_closes() {
+        let mut app = premium_on_shared_app("slow-banner-frequency");
+        let ctx = egui::Context::default();
+        let mut now: jiff::Timestamp = "2026-10-21T09:00:00Z".parse().unwrap();
+        for closed in 1..=crate::settings::SlowAppBanner::MAX_DISMISSALS {
+            app.shared_rate_limited_at = Some(Instant::now());
+            app.maybe_show_slow_banner(now);
+            assert!(app.slow_banner, "day {closed}");
+            app.apply(Action::CloseSlowBanner, &ctx);
+            app.maybe_show_slow_banner(now + jiff::SignedDuration::from_hours(23));
+            assert!(!app.slow_banner, "at most once a day");
+            assert_eq!(app.settings.slow_app_banner.dismissals, closed);
+            now += SLOW_BANNER_INTERVAL;
+        }
+        app.shared_rate_limited_at = Some(Instant::now());
+        app.maybe_show_slow_banner(now + SLOW_BANNER_INTERVAL);
+        assert!(!app.slow_banner, "closed three times, never again");
+
+        // The count survives a restart.
+        let saved = serde_json::to_string(&app.settings).unwrap();
+        let mut restarted = premium_on_shared_app("slow-banner-frequency-restart");
+        restarted.settings = serde_json::from_str(&saved).unwrap();
+        restarted.shared_rate_limited_at = Some(Instant::now());
+        restarted.maybe_show_slow_banner(now + SLOW_BANNER_INTERVAL);
+        assert!(!restarted.slow_banner);
+    }
+
+    #[test]
+    fn answering_the_intro_counts_as_todays_slow_banner() {
+        let mut app = premium_on_shared_app("slow-banner-after-intro");
+        app.settings.personal_app_intro_seen = false;
+        app.maybe_suggest_personal_app();
+        assert!(matches!(app.dialog, Some(Dialog::PersonalAppIntro)));
+        app.shared_rate_limited_at = Some(Instant::now());
+        app.maybe_show_slow_banner(jiff::Timestamp::now());
+        assert!(!app.slow_banner, "not over the intro");
+        app.apply(Action::CloseDialog, &egui::Context::default());
+        app.maybe_show_slow_banner(jiff::Timestamp::now());
+        assert!(!app.slow_banner, "not straight after the intro either");
+        assert_eq!(app.settings.slow_app_banner.dismissals, 0);
+    }
+
+    #[test]
+    fn missing_invalid_and_future_banner_times_do_not_hold_it_back() {
+        let now: jiff::Timestamp = "2026-10-21T09:00:00Z".parse().unwrap();
+        assert!(slow_banner_due(None, now));
+        assert!(slow_banner_due(Some("not a timestamp"), now));
+        assert!(slow_banner_due(Some("2026-10-22T09:00:00Z"), now));
+        assert!(!slow_banner_due(Some("2026-10-21T08:00:00Z"), now));
     }
 
     fn play(uri: &str, at: &str) -> crate::api::models::PlayHistory {

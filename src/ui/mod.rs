@@ -298,6 +298,9 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
             // page casts a shadow under the header instead.
             ui.spacing_mut().scroll.fade.strength = 0.0;
             topbar::show(app, ui);
+            if app.slow_banner && app.dialog.is_none() && page != Page::Settings {
+                slow_banner(app, ui);
+            }
             let scroll = crate::autoscroll::show(
                 ui,
                 egui::ScrollArea::vertical()
@@ -337,6 +340,96 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
             ui.ctx()
                 .data_mut(|data| data.insert_temp(scrolled_id, scroll.state.offset.y));
             header_shadow(ui, scroll.inner_rect, scroll.state.offset.y, palette.dark);
+        });
+}
+
+/// Where the "Why?" link of the slow-app banner leads.
+const SLOW_BANNER_GUIDE: &str = "https://spotifast.rocks/make-it-even-faster/";
+
+/// A strip under the top bar suggesting a personal app, after Spotify
+/// told the shared app it sent too many requests. It stays put while the
+/// page scrolls, and goes when it is closed.
+fn slow_banner(app: &mut App, ui: &mut egui::Ui) {
+    use crate::i18n::gettext;
+    let palette = app.palette;
+    let locale = app.locale;
+    Frame::new()
+        .outer_margin(Margin {
+            left: widgets::PAGE_PADDING as i8,
+            right: widgets::PAGE_PADDING as i8,
+            top: 0,
+            bottom: 8,
+        })
+        .fill(palette.surface)
+        .stroke(Stroke::new(1.0, palette.outline))
+        .corner_radius(CornerRadius::same(theme::RADIUS))
+        .inner_margin(Margin {
+            left: 16,
+            right: 6,
+            top: 12,
+            bottom: 12,
+        })
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                if theme::icon_button(
+                    ui,
+                    Icon::X,
+                    16.0,
+                    palette.secondary,
+                    palette.text,
+                    &gettext(locale, "Close banner"),
+                )
+                .clicked()
+                {
+                    app.actions.push(Action::CloseSlowBanner);
+                }
+                ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                    ui.spacing_mut().item_spacing = vec2(8.0, 4.0);
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(gettext(
+                                locale,
+                                "Spotify is being slow on the shared app.",
+                            ))
+                            .font(theme::bold(14.0))
+                            .color(palette.text),
+                        )
+                        .wrap(),
+                    );
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(gettext(
+                                locale,
+                                "Set up your own personal Spotify app and you won't have to wait. It's free and takes a few minutes.",
+                            ))
+                            .font(theme::regular(13.0))
+                            .color(palette.secondary),
+                        )
+                        .wrap(),
+                    );
+                    ui.add_space(6.0);
+                    ui.horizontal_wrapped(|ui| {
+                        if theme::pill_button(
+                            ui,
+                            &palette,
+                            &gettext(locale, "Set up personal app"),
+                            true,
+                        )
+                        .clicked()
+                        {
+                            app.actions.push(Action::OpenPersonalAppSetup);
+                        }
+                        // Translators: a button that opens a page explaining
+                        // why the shared app is slow and what a personal app is.
+                        if theme::pill_button(ui, &palette, &gettext(locale, "Why?"), false)
+                            .clicked()
+                        {
+                            app.actions.push(Action::OpenUrl(SLOW_BANNER_GUIDE.into()));
+                        }
+                    });
+                });
+            });
         });
 }
 

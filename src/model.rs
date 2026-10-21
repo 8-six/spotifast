@@ -1241,6 +1241,8 @@ pub enum Action {
     /// Add, replace, or remove the optional personal Web API app.
     ConfigurePersonalWebApp,
     OpenPersonalAppSetup,
+    /// The listener closed the "Spotify is being slow" banner.
+    CloseSlowBanner,
     ToggleSidebar,
     ToggleQueuePanel,
     ToggleLyricsPanel,
