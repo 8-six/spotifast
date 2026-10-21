@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Spotifast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/spotifast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-20 10:32+0200\n"
+"POT-Creation-Date: 2026-10-21 10:44+0200\n"
 "PO-Revision-Date: 2026-09-09 13:30+0000\n"
 "Last-Translator: Spotifast contributors\n"
 "Language-Team: German\n"
@@ -1202,11 +1202,8 @@ msgstr "„{name}“ löschen"
 
 #: src/ui/settings.rs:340
 msgid ""
-"Play the local files your playlists list from a folder on this computer. "
-"Only 44.1 kHz files play."
-msgstr ""
-"Spiele die lokalen Dateien deiner Playlists aus einem Ordner auf diesem "
-"Computer ab. Nur Dateien mit 44,1 kHz werden abgespielt."
+"Play the local files your playlists list from a folder on this computer."
+msgstr "Spiele die lokalen Dateien deiner Playlists aus einem Ordner auf diesem Computer ab."
 
 #. Translators: {count} is a number of songs, {folder} a folder on this computer.
 #: src/ui/settings.rs:349
@@ -3571,6 +3568,13 @@ msgstr ""
 "PC oder diese virtuelle Maschine bietet keinen. Installiere den "
 "Grafiktreiber oder schalte die GPU-Beschleunigung der virtuellen Maschine "
 "ein. {url} öffnen, um mehr zu erfahren?"
+
+#~ msgid ""
+#~ "Play the local files your playlists list from a folder on this computer. "
+#~ "Only 44.1 kHz files play."
+#~ msgstr ""
+#~ "Spiele die lokalen Dateien deiner Playlists aus einem Ordner auf diesem "
+#~ "Computer ab. Nur Dateien mit 44,1 kHz werden abgespielt."
 
 #~ msgid "PulseAudio also covers PipeWire. Rodio talks to ALSA directly."
 #~ msgstr "PulseAudio deckt auch PipeWire ab. Rodio spricht direkt mit ALSA."

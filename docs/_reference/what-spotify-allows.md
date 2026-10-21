@@ -158,8 +158,11 @@ librespot provides:
   in Settings and its subfolders. Spotify keeps only a local file's artist,
   album, title and length, so the player matches each `spotify:local:` entry
   to the MP3, MP4, M4P or FLAC file whose tags and length give the same.
-  Only 44.1 kHz files play. The player reads the folder when local playback
-  starts, so songs added later play after the next restart. See
+  Files at any sample rate from 8 to 384 kHz play, mono and surround
+  included: librespot resamples them to 44.1 kHz stereo
+  ([librespot#1840](https://github.com/librespot-org/librespot/pull/1840)).
+  The player reads the folder when local playback starts, so songs added
+  later play after the next restart. See
   [issue #3](https://github.com/crmne/spotifast/issues/3).
 
 Spotify Premium is required. librespot cannot play audio with a free account.
