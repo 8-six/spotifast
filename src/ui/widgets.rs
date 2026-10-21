@@ -1550,7 +1550,7 @@ fn track_row_contents(
             ui.ctx(),
             DragTrack {
                 title: preview.name().to_string(),
-                image: preview.image(64).map(str::to_string),
+                image: app.item_image(preview, 64),
                 items,
                 from,
                 source_playlist,
@@ -1642,7 +1642,7 @@ fn track_row_contents(
         paint_cover(
             ui,
             &palette,
-            row.item.image(app.art_px(size)),
+            app.item_image(row.item, app.art_px(size)).as_deref(),
             cover_rect,
             4.0,
             if row.item.is_track() {

@@ -166,7 +166,13 @@ librespot provides:
   [issue #3](https://github.com/crmne/spotifast/issues/3). Spotify's queue
   refuses a `spotify:local:` entry, so such a song is queued on this
   computer's own player, and only while it plays
-  ([issue #1002](https://github.com/crmne/spotifast/issues/1002)).
+  ([issue #1002](https://github.com/crmne/spotifast/issues/1002)). Spotify
+  has no cover or lyrics for a local file either, so Spotifast reads them
+  from the file: the picture in its tags (an MP3's ID3 `APIC` frame or a
+  FLAC `PICTURE` block), and the words in a `.lrc` file of the same name
+  beside it or in its tags (ID3 `USLT` or a `LYRICS` comment), before
+  asking LRCLIB
+  ([issue #1001](https://github.com/crmne/spotifast/issues/1001)).
 
 Spotify Premium is required. librespot cannot play audio with a free account.
 
