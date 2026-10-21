@@ -163,7 +163,10 @@ librespot provides:
   ([librespot#1840](https://github.com/librespot-org/librespot/pull/1840)).
   The player reads the folder when local playback starts, so songs added
   later play after the next restart. See
-  [issue #3](https://github.com/crmne/spotifast/issues/3).
+  [issue #3](https://github.com/crmne/spotifast/issues/3). Spotify's queue
+  refuses a `spotify:local:` entry, so such a song is queued on this
+  computer's own player, and only while it plays
+  ([issue #1002](https://github.com/crmne/spotifast/issues/1002)).
 
 Spotify Premium is required. librespot cannot play audio with a free account.
 
