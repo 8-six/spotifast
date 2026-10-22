@@ -163,6 +163,11 @@ impl LocalTrack {
     }
 }
 
+/// The engine error for a song whose decryption key Spotify refused. The app
+/// answers it with a banner explaining what still works, rather than the
+/// text itself.
+pub const AUDIO_KEY_REFUSED: &str = "Spotify refused the audio key. Try again later";
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct LocalState {
     pub playback: Playback,
@@ -1045,10 +1050,7 @@ fn apply_event(state: &mut LocalState, event: PlayerEvent) -> bool {
             changed
         }
         PlayerEvent::AudioKeyUnavailable { .. } => {
-            let mut changed = set(
-                &mut state.error,
-                Some("Spotify refused the audio key. Try again later".into()),
-            );
+            let mut changed = set(&mut state.error, Some(AUDIO_KEY_REFUSED.into()));
             changed |= set(&mut state.loading, false);
             changed
         }
@@ -1820,10 +1822,8 @@ mod tests {
                 track_id: uri(),
             },
         ));
-        assert_eq!(
-            state.error.as_deref(),
-            Some("Spotify refused the audio key. Try again later")
-        );
+        assert_eq!(state.error.as_deref(), Some(AUDIO_KEY_REFUSED));
+        assert!(!state.loading);
     }
 
     #[test]

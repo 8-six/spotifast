@@ -1243,6 +1243,12 @@ pub enum Action {
     OpenPersonalAppSetup,
     /// The listener closed the "Spotify is being slow" banner.
     CloseSlowBanner,
+    /// The listener closed the banner saying Spotify refused a song's
+    /// audio key.
+    CloseAudioKeyBanner,
+    /// Opens the device picker, to play on a device that fetches its own
+    /// audio. Unlike [`Action::ToggleDevicesPopup`] it never closes it.
+    PlayOnAnotherDevice,
     ToggleSidebar,
     ToggleQueuePanel,
     ToggleLyricsPanel,

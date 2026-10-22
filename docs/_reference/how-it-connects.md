@@ -314,7 +314,10 @@ before. None of these reads use Web API quota.
 Spotify can also explicitly refuse the key needed to decrypt a track. When
 that happens, Spotifast stops local playback and leaves the rest of the queue
 alone instead of treating every following track as unavailable. This refusal
-comes from Spotify; trying again later may work.
+comes from Spotify; trying again later may work. A banner says so and offers
+the device picker, since other Spotify Connect devices fetch their own audio
+and keys; [Everyday Use](/using-spotifast/#audio-key) explains it for
+listeners. The banner reads the engine's own event and adds no request.
 
 Before adding songs to an existing playlist, Spotifast checks the rows it
 already holds. A known duplicate produces an immediate confirmation naming the

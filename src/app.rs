@@ -665,6 +665,12 @@ pub struct App {
     premium_notice_shown: bool,
     /// The "Spotify is being slow" banner is up at the top of the page.
     pub slow_banner: bool,
+    /// The banner saying Spotify refused this computer a song's audio key
+    /// is up. It takes the slow banner's place while both are due.
+    pub audio_key_banner: bool,
+    /// The listener closed the audio-key banner, and no song has played
+    /// here since: further refusals only toast.
+    audio_key_banner_closed: bool,
     /// The shared app's rate-limit count last read from the backend.
     shared_rate_limits_seen: u64,
     /// When Spotify last told the shared app it sent too many requests.
@@ -1236,6 +1242,8 @@ impl App {
             last_unavailable_reconnect: None,
             premium_notice_shown: false,
             slow_banner: false,
+            audio_key_banner: false,
+            audio_key_banner_closed: false,
             shared_rate_limits_seen: 0,
             shared_rate_limited_at: None,
             assumed_context: None,
@@ -2733,6 +2741,8 @@ impl App {
                     self.dialog = None;
                 }
                 self.slow_banner = false;
+                self.audio_key_banner = false;
+                self.audio_key_banner_closed = false;
                 self.uploaded_covers.clear();
                 self.sign_in_url = None;
                 self.web_app = None;
@@ -3156,7 +3166,12 @@ impl App {
         if let Some(error) = &state.error
             && self.local.error.as_deref() != Some(error.as_str())
         {
-            self.toast_error(engine_error_text(self.locale, error));
+            if error == crate::player::AUDIO_KEY_REFUSED && !self.audio_key_banner_closed {
+                // The banner explains it and says what still works.
+                self.audio_key_banner = true;
+            } else {
+                self.toast_error(engine_error_text(self.locale, error));
+            }
             // One unavailable track is Spotify's catalogue; several in a
             // row is the session's audio-key service gone bad, which
             // leaves librespot feeding the decoder encrypted bytes and
@@ -3202,6 +3217,14 @@ impl App {
             self.poll_remote_soon();
         }
         self.local = state;
+        if self.local.playback == Playback::Playing
+            && !self.local.loading
+            && self.local.error.is_none()
+        {
+            // A song plays here again: the next refusal is news.
+            self.audio_key_banner = false;
+            self.audio_key_banner_closed = false;
+        }
         if let Some(volume) = held_volume {
             self.local.volume = volume;
         }
@@ -11045,6 +11068,15 @@ impl App {
                 }
                 self.dialog = None;
             }
+            Action::CloseAudioKeyBanner => {
+                self.audio_key_banner = false;
+                self.audio_key_banner_closed = true;
+            }
+            Action::PlayOnAnotherDevice => {
+                if !self.show_devices {
+                    self.apply(Action::ToggleDevicesPopup, ctx);
+                }
+            }
             Action::CloseSlowBanner => {
                 self.slow_banner = false;
                 let banner = &mut self.settings.slow_app_banner;
@@ -11108,10 +11140,13 @@ impl App {
                     .api(ApiRequest::FollowPlaylist { id, follow: false });
             }
             Action::Transfer(device_id) => {
+                // The listener chose where to play instead.
+                self.audio_key_banner = false;
                 self.remember_device_choice(&device_id);
                 self.transfer(device_id);
             }
             Action::ActivateReceiver(receiver) => {
+                self.audio_key_banner = false;
                 if self.activating_receiver.is_none() {
                     if let Some(key) = receiver.preference_key() {
                         self.remember_device_choice(&key);
@@ -13098,6 +13133,13 @@ fn fill_availability(availability: &HashMap<String, bool>, items: &mut [Playlist
 /// The playback engine reports in English from its own thread. The
 /// messages the interface recognises are shown in the user's language.
 fn engine_error_text(locale: Locale, error: &str) -> String {
+    if error == crate::player::AUDIO_KEY_REFUSED {
+        return gettext(
+            locale,
+            "Spotify won't let this computer play this song right now.",
+        )
+        .into_owned();
+    }
     if error == crate::sink::NO_DEVICE {
         return gettext(
             locale,
@@ -21015,6 +21057,98 @@ mod tests {
         });
         app.settings.personal_app_intro_seen = true;
         app
+    }
+
+    fn local_refusal(sequence: u64) -> LocalState {
+        LocalState {
+            playback: Playback::Stopped,
+            error: Some(crate::player::AUDIO_KEY_REFUSED.into()),
+            track_sequence: sequence,
+            ..LocalState::default()
+        }
+    }
+
+    fn local_retry(sequence: u64) -> LocalState {
+        LocalState {
+            playback: Playback::Loading,
+            loading: true,
+            track_sequence: sequence,
+            ..LocalState::default()
+        }
+    }
+
+    fn local_playing(sequence: u64) -> LocalState {
+        LocalState {
+            playback: Playback::Playing,
+            position_at: Some(Instant::now()),
+            track_sequence: sequence,
+            ..LocalState::default()
+        }
+    }
+
+    #[test]
+    fn a_refused_audio_key_brings_up_its_banner_instead_of_a_toast() {
+        let mut app = test_app("audio-key-banner");
+        app.handle_local(local_refusal(1));
+        assert!(app.audio_key_banner);
+        assert!(app.toasts.is_empty(), "the banner says it, not a toast");
+
+        // Trying again and failing again keeps the one banner.
+        app.handle_local(local_retry(1));
+        assert!(app.audio_key_banner, "a retry does not take it away");
+        app.handle_local(local_refusal(1));
+        assert!(app.audio_key_banner);
+        assert!(app.toasts.is_empty());
+
+        // A song that plays here takes it away.
+        app.handle_local(local_retry(2));
+        app.handle_local(local_playing(2));
+        assert!(!app.audio_key_banner);
+    }
+
+    #[test]
+    fn a_closed_audio_key_banner_waits_for_a_song_to_play() {
+        let ctx = egui::Context::default();
+        let mut app = test_app("audio-key-banner-closed");
+        app.handle_local(local_refusal(1));
+        app.apply(Action::CloseAudioKeyBanner, &ctx);
+        assert!(!app.audio_key_banner);
+
+        // The same failure again only toasts, in plain words.
+        app.handle_local(local_retry(1));
+        app.handle_local(local_refusal(1));
+        assert!(!app.audio_key_banner, "closed until a song plays");
+        assert_eq!(app.toasts.len(), 1);
+        assert_eq!(
+            app.toasts[0].message,
+            "Spotify won't let this computer play this song right now."
+        );
+
+        // After a song played, the next refusal is news again.
+        app.handle_local(local_retry(2));
+        app.handle_local(local_playing(2));
+        app.handle_local(local_retry(3));
+        app.handle_local(local_refusal(3));
+        assert!(app.audio_key_banner);
+        assert_eq!(app.toasts.len(), 1);
+    }
+
+    #[test]
+    fn choosing_a_device_or_signing_out_takes_the_audio_key_banner_away() {
+        let ctx = egui::Context::default();
+        let mut app = test_app("audio-key-banner-device");
+        app.handle_local(local_refusal(1));
+        app.apply(Action::PlayOnAnotherDevice, &ctx);
+        assert!(app.show_devices, "the device picker opens");
+        app.apply(Action::PlayOnAnotherDevice, &ctx);
+        assert!(app.show_devices, "and stays open");
+        assert!(app.audio_key_banner, "until a device is chosen");
+        app.apply(Action::Transfer("phone".into()), &ctx);
+        assert!(!app.audio_key_banner);
+
+        app.audio_key_banner = true;
+        app.handle_auth(AuthStatus::SignedOut);
+        assert!(!app.audio_key_banner);
     }
 
     #[test]

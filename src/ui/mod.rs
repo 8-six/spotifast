@@ -298,8 +298,14 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
             // page casts a shadow under the header instead.
             ui.spacing_mut().scroll.fade.strength = 0.0;
             topbar::show(app, ui);
-            if app.slow_banner && app.dialog.is_none() && page != Page::Settings {
-                slow_banner(app, ui);
+            // One banner at a time: a song that will not play matters more
+            // than a slow app, which waits its turn.
+            if app.dialog.is_none() && page != Page::Settings {
+                if app.audio_key_banner {
+                    audio_key_banner(app, ui);
+                } else if app.slow_banner {
+                    slow_banner(app, ui);
+                }
             }
             let scroll = crate::autoscroll::show(
                 ui,
@@ -345,11 +351,81 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
 
 /// Where the "Why?" link of the slow-app banner leads.
 const SLOW_BANNER_GUIDE: &str = "https://spotifast.rocks/make-it-even-faster/";
+/// Where the "Why?" link of the audio-key banner leads.
+pub const AUDIO_KEY_GUIDE: &str = "https://spotifast.rocks/using-spotifast/#audio-key";
 
 /// A strip under the top bar suggesting a personal app, after Spotify
 /// told the shared app it sent too many requests. It stays put while the
 /// page scrolls, and goes when it is closed.
 fn slow_banner(app: &mut App, ui: &mut egui::Ui) {
+    use crate::i18n::gettext;
+    let locale = app.locale;
+    banner(
+        app,
+        ui,
+        &gettext(locale, "Spotify is being slow on the shared app."),
+        &gettext(
+            locale,
+            "Set up your own personal Spotify app and you won't have to wait. It's free and takes a few minutes.",
+        ),
+        [
+            (
+                gettext(locale, "Set up personal app"),
+                Action::OpenPersonalAppSetup,
+            ),
+            (
+                // Translators: a button that opens a page explaining why
+                // the banner it sits in appeared.
+                gettext(locale, "Why?"),
+                Action::OpenUrl(SLOW_BANNER_GUIDE.into()),
+            ),
+        ],
+        Action::CloseSlowBanner,
+    );
+}
+
+/// A strip under the top bar after Spotify refused the key that decrypts a
+/// song on this computer, offering another Spotify device, which fetches
+/// its own audio, and the guide's explanation.
+fn audio_key_banner(app: &mut App, ui: &mut egui::Ui) {
+    use crate::i18n::gettext;
+    let locale = app.locale;
+    banner(
+        app,
+        ui,
+        &gettext(
+            locale,
+            "Spotify won't let this computer play this song right now.",
+        ),
+        &gettext(
+            locale,
+            "Spotify refused the key that unlocks the audio. Spotifast can't fix that, but it sometimes clears up on its own. You can still play on your phone or another Spotify device.",
+        ),
+        [
+            (
+                gettext(locale, "Play on another device"),
+                Action::PlayOnAnotherDevice,
+            ),
+            (
+                gettext(locale, "Why?"),
+                Action::OpenUrl(AUDIO_KEY_GUIDE.into()),
+            ),
+        ],
+        Action::CloseAudioKeyBanner,
+    );
+}
+
+/// A notice under the top bar: a bold line, a sentence or two, a main and
+/// a secondary button, and a close button.
+fn banner(
+    app: &mut App,
+    ui: &mut egui::Ui,
+    title: &str,
+    text: &str,
+    [(primary, primary_action), (secondary, secondary_action)]: [(std::borrow::Cow<'static, str>, Action);
+        2],
+    close: Action,
+) {
     use crate::i18n::gettext;
     let palette = app.palette;
     let locale = app.locale;
@@ -382,50 +458,33 @@ fn slow_banner(app: &mut App, ui: &mut egui::Ui) {
                 )
                 .clicked()
                 {
-                    app.actions.push(Action::CloseSlowBanner);
+                    app.actions.push(close);
                 }
                 ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
                     ui.spacing_mut().item_spacing = vec2(8.0, 4.0);
                     ui.add(
                         egui::Label::new(
-                            egui::RichText::new(gettext(
-                                locale,
-                                "Spotify is being slow on the shared app.",
-                            ))
-                            .font(theme::bold(14.0))
-                            .color(palette.text),
+                            egui::RichText::new(title)
+                                .font(theme::bold(14.0))
+                                .color(palette.text),
                         )
                         .wrap(),
                     );
                     ui.add(
                         egui::Label::new(
-                            egui::RichText::new(gettext(
-                                locale,
-                                "Set up your own personal Spotify app and you won't have to wait. It's free and takes a few minutes.",
-                            ))
-                            .font(theme::regular(13.0))
-                            .color(palette.secondary),
+                            egui::RichText::new(text)
+                                .font(theme::regular(13.0))
+                                .color(palette.secondary),
                         )
                         .wrap(),
                     );
                     ui.add_space(6.0);
                     ui.horizontal_wrapped(|ui| {
-                        if theme::pill_button(
-                            ui,
-                            &palette,
-                            &gettext(locale, "Set up personal app"),
-                            true,
-                        )
-                        .clicked()
-                        {
-                            app.actions.push(Action::OpenPersonalAppSetup);
+                        if theme::pill_button(ui, &palette, &primary, true).clicked() {
+                            app.actions.push(primary_action);
                         }
-                        // Translators: a button that opens a page explaining
-                        // why the shared app is slow and what a personal app is.
-                        if theme::pill_button(ui, &palette, &gettext(locale, "Why?"), false)
-                            .clicked()
-                        {
-                            app.actions.push(Action::OpenUrl(SLOW_BANNER_GUIDE.into()));
+                        if theme::pill_button(ui, &palette, &secondary, false).clicked() {
+                            app.actions.push(secondary_action);
                         }
                     });
                 });

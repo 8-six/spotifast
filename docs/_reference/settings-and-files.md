@@ -433,7 +433,7 @@ settings.
 `--demo-page` opens a page, such as `home`, `playlist:pl1`, or `artist:art0`,
 and `--demo-show` adds surfaces on top of it: a comma separated list of
 `queue`, `playing-next`, `devices`, `home-loading`, `audio-outputs`, `shortcuts`, `premium`, `create`, `duplicate`, `light`, `system-light`, `system-dark`,
-`focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`, `slow-banner`,
+`focus`, `winamp`, `playlist`, `eq`, `eq-shade`, `compact`, `update`, `personal-app`, `slow-banner`, `audio-key-banner`,
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
 `library-grid-wide`, `eq-user-presets`, `start-in-tray`, `rtl`, `player-bar-spectrum`, `player-bar-waveform`,
@@ -443,7 +443,8 @@ a normal, narrow, or wide sidebar and collapsed artwork for matching captures.
 playback-started outcomes of a collection Shuffle click. `update` shows a sample
 update badge for checking its layout. `personal-app` shows the personal Spotify
 app introduction, and `slow-banner` the banner suggesting one when Spotify
-slows the shared app down. `audio-outputs` opens the device picker with sample audio
+slows the shared app down. `audio-key-banner` shows the banner for a song
+whose audio key Spotify refused. `audio-outputs` opens the device picker with sample audio
 outputs to choose from, as Spotifast's own output lists them.
 `signed-out` and `connecting` show the sign-in card before and while the
 session connects.
