@@ -607,12 +607,20 @@ does not cause the previous local song to restart or replace the remote queue.
 
 The engine prepares the next two songs of the queue while one plays, so Next
 starts the following song without waiting for it to load. For each, it reads
-the song's metadata, asks for its audio key, and fetches the first 128 KB of
-its file from Spotify's CDN, about three seconds of audio at 320 kbit/s, and
-keeps them in memory. A song already in the audio cache is not fetched again.
-Nothing is wasted when the song then plays: its load uses all three.
-Skipping further than two songs ahead loads the song as before. These
-requests go through the playback session and use no Web API quota.
+the song's metadata and fetches the first 128 KB of its file from Spotify's
+CDN, about three seconds of audio at 320 kbit/s, and keeps them in memory; for
+the next song it also asks for the audio key. A song already in the audio
+cache is not fetched again. Nothing is wasted when the song then plays: its
+load uses what was fetched. Skipping further than two songs ahead loads the
+song as before, and a song skipped past before it has loaded stops loading.
+These requests go through the playback session and use no Web API quota.
+
+Audio keys are asked for one at a time, at least 200 ms apart. When Spotify
+refuses one, the session waits 3 seconds before asking for any key, then 5,
+then 10 after each further refusal in a row, and a key that arrives ends the
+wait. The song being loaded asks again after each wait, up to three times,
+before Spotifast reports the refusal; the next song's key is not prefetched
+during a wait.
 
 Local playback has one output on every platform, fastframe-audio: CoreAudio on
 macOS, WASAPI on Windows, and on Linux PipeWire when it is running, otherwise a
