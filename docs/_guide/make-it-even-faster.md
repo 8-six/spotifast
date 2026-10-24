@@ -19,6 +19,9 @@ MilkDrop frame-rate setting applies to its separate visualizer window.
 
 ## API rate limits
 
+If you got here from "Spotify is being slow on the shared app", the short
+version is in [Spotify is being slow](/troubleshooting/#rate-limits).
+
 Spotify limits how often apps can ask for information. Spotifast normally
 shares this allowance with other listeners and several other music players.
 When that shared connection is busy, your library and search results can take

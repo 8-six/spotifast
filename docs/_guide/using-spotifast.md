@@ -624,35 +624,9 @@ snap the window, and drag a window edge or corner to resize it.
 
 ## When Spotify won't play a song here {#audio-key}
 
-Sometimes you press play, the song shows up as usual, and then nothing
-plays. Spotifast puts up a banner saying Spotify won't let this computer play
-this song right now.
-
-Here's what's going on. Spotify sends songs locked, and every song needs a
-key to unlock the audio. Spotifast plays music through librespot, and
-librespot asks Spotify for that key each time. Signing in works and your
-library looks normal, but Spotify says no to the key. Without it, there's
-nothing Spotifast can turn into sound.
-
-Changing audio settings, clearing the cache or reinstalling won't fix it,
-because the problem isn't on your computer. Sometimes it clears up on its
-own after a while, so trying again later can work, but there's no promise
-it will. Other apps that use librespot run into the same thing, and it's
-tracked in
-[librespot issue #1649](https://github.com/librespot-org/librespot/issues/1649).
-There's no fix yet that Spotifast can pick up: Spotify has to hand out the
-keys again, or librespot has to find a supported way to play these songs.
-
-You can still listen in the meantime. **Play on another device** in the
-banner opens the device picker, the same one as the devices button in the
-player bar. Pick your phone, a speaker, or another computer with Spotify
-open, and the music plays there while you keep using Spotifast to pick
-songs, skip and change the volume. Those devices get their own audio from
-Spotify, so this doesn't stop them.
-
-Close the banner with **×** and it stays away until a song plays on this
-computer again. If it happens again before that, you just get a short
-message.
+If a song shows up as playing but nothing plays, and a banner says Spotify
+won't let this computer play this song right now, see
+[Spotify refused the audio key](/troubleshooting/#audio-key).
 
 ## Choosing the audio output
 

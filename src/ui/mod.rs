@@ -350,9 +350,9 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
 }
 
 /// Where the "Why?" link of the slow-app banner leads.
-const SLOW_BANNER_GUIDE: &str = "https://spotifast.rocks/make-it-even-faster/";
+const SLOW_BANNER_GUIDE: &str = "https://spotifast.rocks/troubleshooting/#rate-limits";
 /// Where the "Why?" link of the audio-key banner leads.
-pub const AUDIO_KEY_GUIDE: &str = "https://spotifast.rocks/using-spotifast/#audio-key";
+pub const AUDIO_KEY_GUIDE: &str = "https://spotifast.rocks/troubleshooting/#audio-key";
 
 /// A strip under the top bar suggesting a personal app, after Spotify
 /// told the shared app it sent too many requests. It stays put while the

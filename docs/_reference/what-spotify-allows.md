@@ -34,6 +34,8 @@ Spotifast uses the Web API for:
 
 Users of the default app share Spotify's quota. Spotifast limits heavy
 requests and pauses a session when Spotify sends a `Retry-After` response.
+[Spotify is being slow](/troubleshooting/#rate-limits) explains it for
+listeners.
 
 Spotify also limits apps created since November 2024. These apps cannot access
 Spotify-owned playlists, related artists, recommendations, or audio features.
@@ -178,7 +180,9 @@ Spotify Premium is required. librespot cannot play audio with a free account.
 
 Spotifast uses a small librespot fork: librespot's development branch with a
 few patches that are also proposed upstream, such as normalisation data for the
-visualisers and an event for rejected audio keys. They are listed in
+visualisers and an event for rejected audio keys. When Spotify refuses an
+audio key, nothing in Spotifast can fix it; see
+[Spotify refused the audio key](/troubleshooting/#audio-key). The patches are listed in
 `Cargo.toml` and dropped as librespot merges them.
 
 ## Not available
