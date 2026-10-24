@@ -28,7 +28,8 @@ into one folder.
 
 Right-click the title bar, or click **O**, to choose a size from 1x to 4x.
 Each size keeps the classic pixels sharp. The same menu can keep the player
-above other windows. **D** toggles double size and **A** toggles always-on-top.
+above other windows. **D** steps through the sizes, 1x to 4x, and **A**
+toggles always-on-top.
 Spotifast remembers the window position where your desktop allows it.
 
 Skins can have transparent areas and shapes other than rectangles. Modern
