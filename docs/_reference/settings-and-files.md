@@ -99,8 +99,11 @@ It records non-secret revocation markers before deleting the protected entries
 and all legacy token files, including temporary copies. A locked store or
 filesystem failure is reported. Revocation markers prevent a failed protected
 entry deletion from restoring the session on restart; keep these markers when
-a deletion failed. Removing or changing a personal Client ID clears that app's
-old grant.
+a deletion failed. Changing the personal Client ID clears that app's old
+grant. Signing out keeps the Client ID, so the next sign-in needs no setup.
+Since 0.14.2 Settings no longer removes the personal app: it is what the
+session signs in with. A shared grant saved by an earlier version is kept
+under its own entry with the Client ID it was issued to.
 
 Version 0.7.1 and earlier use the legacy unencrypted files listed above. Their
 Web API writer requests owner-only permissions for newly created Unix files;
@@ -194,9 +197,10 @@ temporarily unavailable. Live session data is still required for edit grants.
 
 The library's playlist list is stored under `library/` in the cache
 directory, one JSON file per account. It is shown as soon as the account is
-verified, while the list is read from Spotify again. Spotify reads the
-complete list only through the shared app, so on a busy day this keeps the
-sidebar usable while that app waits out Spotify's limits. The new list
+verified, while the list is read from Spotify again. Spotify gives the
+complete list only to the playback session and to a shared grant from before
+0.14.2, so on a busy day this keeps the sidebar usable while they wait out
+Spotify's limits. The new list
 replaces the shown one once all its pages have arrived. A failed read keeps
 the shown list; a rate limited, network or server failure is also read again
 a minute later, while other refusals wait for the next reload. Offline, the
@@ -390,7 +394,7 @@ main fields are:
 | `mac_notch_widget` | `false` | Show interactive Now Playing widget when hovering over the MacBook notch (macOS only) |
 | `mac_show_in_dock` | `true` | macOS only: show Spotifast in the Dock and Cmd+Tab. `false` keeps it in the menu bar only; the menu-bar icon always stays |
 | `check_for_updates` | `true` | Ask GitHub once a day for a newer release |
-| `web_client_id` | none | Optional personal Spotify app id used alongside shared coverage |
+| `web_client_id` | none | Client ID of your own Spotify app, which Spotifast signs in with |
 | `personal_app_nudge_at` | none | Legacy daily-reminder timestamp, retained for older releases |
 | `personal_app_intro_seen` | `false` | Whether the Premium personal-app introduction was dismissed or followed (available since 0.8.0) |
 | `slow_app_banner` | none | When the "Spotify is being slow" banner last appeared (`shown_at`) and how many times it was closed (`dismissals`; at 3 it stops). Kept by the app, not a preference |
@@ -437,17 +441,26 @@ and `--demo-show` adds surfaces on top of it: a comma separated list of
 `collection-loading`, `shuffle-selected`, `shuffle-started`, `library-list`,
 `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
 `library-grid-wide`, `eq-user-presets`, `start-in-tray`, `rtl`, `player-bar-spectrum`, `player-bar-waveform`,
-`lyrics-fullscreen-view`, `lyrics-fullscreen-instrumental`, `signed-out`, and `connecting`. The Library variants show the list or cover grid with
+`lyrics-fullscreen-view`, `lyrics-fullscreen-instrumental`, `signed-out`, `connecting`,
+`waiting-for-browser`, `sign-in-returning`, `sign-in-malformed`, `sign-in-shared-retired`,
+`sign-in-unknown-client`, `sign-in-not-allowed`, `shared-grant`, and `own-app`. The Library variants show the list or cover grid with
 a normal, narrow, or wide sidebar and collapsed artwork for matching captures.
 `shuffle-selected` and `shuffle-started` capture the selected-mode and
 playback-started outcomes of a collection Shuffle click. `update` shows a sample
 update badge for checking its layout. `personal-app` shows the personal Spotify
-app introduction, and `slow-banner` the banner suggesting one when Spotify
-slows the shared app down. `audio-key-banner` shows the banner for a song
+app introduction for a listener on a shared grant, and `slow-banner` the
+banner suggesting one when Spotify slows the shared app down. `audio-key-banner` shows the banner for a song
 whose audio key Spotify refused. `audio-outputs` opens the device picker with sample audio
 outputs to choose from, as Spotifast's own output lists them.
-`signed-out` and `connecting` show the sign-in card before and while the
-session connects.
+`signed-out` and `connecting` show the sign-in card, with the steps for
+setting up a Spotify app, before and while the session connects;
+`waiting-for-browser` shows it while the browser is open.
+`sign-in-returning` shows it for a listener with a Client ID saved,
+`sign-in-malformed` with one that cannot be a Client ID, and
+`sign-in-shared-retired`, `sign-in-unknown-client` and `sign-in-not-allowed`
+after each way Spotify can turn a sign-in down. `shared-grant` shows
+Settings for a listener still on a shared grant from before 0.14.2, and
+`own-app` for one using their own app.
 `system-light` and `system-dark` choose Follow system on a desktop that is
 light or dark (on Linux), to show the light and dark mode themes; with an
 explicit `--demo-data` directory, its `config/settings.json` and

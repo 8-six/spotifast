@@ -41,9 +41,9 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                 // Drawn by cover_art above.
                 Dialog::CoverArt { .. } => {}
                 Dialog::PersonalAppIntro => {
-                    theme::text(ui, gettext(locale, "Spotify can be slow on the shared app"), theme::bold(20.0), palette.text);
+                    theme::text(ui, gettext(locale, "Move to your own Spotify app"), theme::bold(20.0), palette.text);
                     ui.add_space(12.0);
-                    ui.add(egui::Label::new(egui::RichText::new(gettext(locale, "Everyone using Spotifast shares one app, and Spotify slows it down when it's busy. Set up your own personal Spotify app and you won't have to wait. It's free and takes a few minutes.")).font(theme::regular(14.0)).color(palette.secondary)).wrap());
+                    ui.add(egui::Label::new(egui::RichText::new(gettext(locale, "You're signed in through the shared app Spotifast used before. Spotifast no longer offers it, and Spotify can stop accepting it at any time. Set up your own free Spotify app so nothing stops your music. It takes a few minutes.")).font(theme::regular(14.0)).color(palette.secondary)).wrap());
                     ui.add_space(10.0);
                     ui.add_space(8.0);
                     buttons(ui, |ui| {

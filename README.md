@@ -67,11 +67,17 @@ https://github.com/user-attachments/assets/a5f669ce-b3b7-4f8e-9933-976a78876c7e
 
 ## Start listening
 
-1. Open Spotifast and choose **Sign in with Spotify**. Approve access in your
-   browser, then return to the app to see your library.
-2. To listen on this computer, open the device menu in the bottom player bar
+1. Make your own free Spotify app, as the sign-in screen shows: in the
+   [Spotify developer dashboard](https://developer.spotify.com/dashboard),
+   create an app with the redirect URI `http://127.0.0.1:8989/login` and
+   **Web API** ticked. Spotify requires Premium on the account that creates
+   it. [Getting started](https://spotifast.rocks/getting-started/#make-a-spotify-app)
+   has the steps.
+2. Paste its Client ID into Spotifast and choose **Sign in with Spotify**.
+   Approve access in your browser, then return to the app to see your library.
+3. To listen on this computer, open the device menu in the bottom player bar
    and choose **Set up playback here**, also available in Settings.
-3. Complete the separate playback approval in your browser. Your computer
+4. Complete the separate playback approval in your browser. Your computer
    appears as a Spotify Connect device named **Spotifast**.
 
 Library access and local playback have separate approvals. Spotifast remembers

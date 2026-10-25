@@ -48,7 +48,7 @@ Spotifast connects only to the services below.
   the playback session's Login5 bearer and client token. The resulting cards
   are cached in memory for ten minutes and saved in the account-scoped Home
   cache for the next start. Both caches are cleared on sign-out. If the Made
-  for you request fails, the shared Web API receives playlist-name searches
+  for you request fails, the Web API receives playlist-name searches
   for approximate suggestions. Home's **New releases** request sends the
   playback session's Login5 bearer and client token to Spotify's Pathfinder
   service, which answers with the account's feed of new releases; when it

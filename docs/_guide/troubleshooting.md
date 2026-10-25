@@ -73,6 +73,20 @@ message.
 Spotifast follows this in
 [issue #283](https://github.com/crmne/spotifast/issues/283).
 
+## Signing in fails {#sign-in}
+
+If Spotify's page says **redirect_uri: Not matching configuration**, you are
+on a version before 0.14.2, which signed in through a shared app that no
+longer accepts new sign-ins
+([#1057](https://github.com/crmne/spotifast/issues/1057)). Update Spotifast,
+then follow the steps on the sign-in screen to make your own free Spotify app.
+
+If Spotify's page says **Invalid redirect URI**, your own app is missing the
+address `http://127.0.0.1:8989/login`, or has it with a difference, such as
+`localhost` or a slash at the end. Add it exactly, save, and sign in again.
+[Getting Started](/getting-started/#sign-in-with-it) covers the other
+messages the sign-in screen can show.
+
 ## Spotify is being slow (rate limits) {#rate-limits}
 
 You may see this banner at the top of the page:
@@ -82,37 +96,40 @@ You may see this banner at the top of the page:
 Or you may find lines like these in the log:
 
 ```
-Spotify rate limit source=shared wait=8s
-Spotify cooldown source=shared duration_ms=8000
+Spotify rate limit source=personal wait=8s
+Spotify cooldown source=personal duration_ms=8000
 ```
 
 ### What it means
 
-Spotify limits how many requests an app can make. Unless you set up your
-own, everyone using Spotifast shares one app, together with a few other
-players such as spotify-player, ncspot and Omarchy Spotify. When too many
-people use it at once, Spotify tells it to wait. Spotifast waits as told,
-then tries again. In the log, `source=shared` means the shared app is
-waiting; `source=personal` means your own personal app is.
+Spotify limits how many requests an app can make, and tells an app that
+asks too often to wait. Spotifast waits as told, then tries again. In the
+log, `source=personal` means your own Spotify app is waiting;
+`source=shared` means the shared app that versions before 0.14.2 signed
+everyone in with is.
 
 While it waits, searches and your library take longer to load, playback
 controls can feel slow, and signing in can take a while. The top bar shows a
 spinner; point at it to see what Spotifast is waiting for. Your playlists and
 Home keep what they showed last time until the update arrives.
 
-### The fix: a personal Spotify app
+### On the shared app
 
-Make a free [personal Spotify app](/make-it-even-faster/#make-a-spotify-app).
-It takes a few minutes, needs no code, and Spotify requires Premium for it.
-**Set up personal app** in the banner opens that setup in Settings. Your searches, library
-and playback controls then use your own allowance instead of waiting in line
-with everyone else.
+The banner appears only if you are still signed in through the shared app,
+which everyone signed in that way shares, so it is often busy. The fix is a
+free Spotify app of your own, which you will need anyway once Spotify stops
+accepting the shared one. It takes a few minutes, needs no code, and Spotify
+requires Premium for it. **Set up personal app** in the banner opens the
+setup in Settings, and [Getting Started](/getting-started/#make-a-spotify-app)
+has the steps. Your searches, library and playback controls then use your
+own allowance.
 
-A few things still go through the shared app, because Spotify doesn't let
-personal apps do them: your full list of playlists, the playlists part of a
-search, recommendations, and related artists. Setting up playback on this
-computer helps here too, since it can read many playlists without asking the
-shared app. [How it connects](/how-it-connects/) has the details.
+### On your own app
+
+Your own app's allowance is yours alone, so it is rarely the cause. Setting
+up playback on this computer helps when it is: Spotifast then reads your
+playlists, popular songs and related artists through its music connection,
+which uses none of it. [How it connects](/how-it-connects/) has the details.
 
 ### "Development Mode quota is exhausted"
 

@@ -1054,6 +1054,10 @@ fn demo_sound() -> Vec<f64> {
         .collect()
 }
 
+/// A Client ID of the right shape that Spotify never issued.
+#[cfg(feature = "demo")]
+const DEMO_CLIENT_ID: &str = "0123456789abcdef0123456789abcdef";
+
 /// Select sample pages and UI states for deterministic, unauthenticated demos.
 /// The By You fixtures cover owned rows and an intentionally unmatched search.
 #[cfg(feature = "demo")]
@@ -1164,6 +1168,37 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
             "connecting" => {
                 app.auth = AuthStatus::Connecting;
                 app.user = None;
+            }
+            // The sign-in card for someone signing in again with their app,
+            // and each way Spotify can turn a sign-in down.
+            "sign-in-returning" => {
+                app.auth = AuthStatus::SignedOut;
+                app.user = None;
+                app.settings.web_client_id = Some(DEMO_CLIENT_ID.into());
+            }
+            "sign-in-malformed" => {
+                app.auth = AuthStatus::SignedOut;
+                app.user = None;
+                app.settings.web_client_id = Some("developer.spotify.com/dashboard".into());
+            }
+            "sign-in-shared-retired" | "sign-in-unknown-client" | "sign-in-not-allowed" => {
+                use crate::backend::SignInProblem;
+                app.auth = AuthStatus::Refused(match surface {
+                    "sign-in-shared-retired" => SignInProblem::SharedRetired,
+                    "sign-in-unknown-client" => SignInProblem::UnknownClient,
+                    _ => SignInProblem::AccountNotAllowed,
+                });
+                app.user = None;
+                if surface != "sign-in-shared-retired" {
+                    app.settings.web_client_id = Some(DEMO_CLIENT_ID.into());
+                }
+            }
+            // Settings for a listener still on the shared grant from before
+            // 0.14.2, and for one using their own app.
+            "shared-grant" => app.shared_grant = true,
+            "own-app" => {
+                app.settings.web_client_id = Some(DEMO_CLIENT_ID.into());
+                app.web_app = Some(DEMO_CLIENT_ID.into());
             }
             "waiting-for-browser" => {
                 app.auth = AuthStatus::WaitingForBrowser {
@@ -7047,6 +7082,10 @@ mod tests {
                 url: "https://accounts.spotify.com/authorize".into(),
             },
             AuthStatus::Connecting,
+            // The longest explanations, beside the setup steps.
+            AuthStatus::Refused(crate::backend::SignInProblem::SharedRetired),
+            AuthStatus::Refused(crate::backend::SignInProblem::AccountNotAllowed),
+            AuthStatus::Refused(crate::backend::SignInProblem::MalformedClientId),
         ];
         for size in [
             egui::vec2(

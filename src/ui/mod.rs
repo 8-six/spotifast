@@ -364,7 +364,8 @@ const SLOW_BANNER_GUIDE: &str = "https://spotifast.rocks/troubleshooting/#rate-l
 pub const AUDIO_KEY_GUIDE: &str = "https://spotifast.rocks/troubleshooting/#audio-key";
 
 /// A strip under the top bar suggesting a personal app, after Spotify
-/// told the shared app it sent too many requests. It stays put while the
+/// told the shared app, which only listeners signed in before 0.14.2 still
+/// use, that it sent too many requests. It stays put while the
 /// page scrolls, and goes when it is closed.
 fn slow_banner(app: &mut App, ui: &mut egui::Ui) {
     use crate::i18n::gettext;
@@ -375,7 +376,7 @@ fn slow_banner(app: &mut App, ui: &mut egui::Ui) {
         &gettext(locale, "Spotify is being slow on the shared app."),
         &gettext(
             locale,
-            "Set up your own personal Spotify app and you won't have to wait. It's free and takes a few minutes.",
+            "Spotifast no longer offers the shared app, and Spotify can stop accepting it at any time. Set up your own free Spotify app and you won't have to wait.",
         ),
         [
             (
