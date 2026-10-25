@@ -322,7 +322,14 @@ fn section(
         )
         .stroke(Stroke::new(1.0, palette.outline))
         .corner_radius(CornerRadius::same(theme::RADIUS + 2))
-        .inner_margin(Margin::symmetric(20, 16))
+        // Every row leaves 10 points below itself for the next one, so the
+        // bottom margin is that much less than the top one (#1037).
+        .inner_margin(Margin {
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: 6,
+        })
         .show(ui, |ui| {
             ui.set_width(ui.available_width().min(760.0));
             add_contents(ui);
