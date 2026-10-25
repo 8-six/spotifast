@@ -2380,7 +2380,17 @@ impl Worker {
                         self.forget_web_grant(source);
                         if source == ApiSource::Personal {
                             self.emit(Event::WebApp { client_id: None });
-                        } else {
+                        }
+                        // Either grant carries the session alone when the
+                        // other is gone; only losing the last one signs out.
+                        let other_ready = match source {
+                            ApiSource::Shared => self.api.personal_ready(),
+                            ApiSource::Personal => matches!(
+                                self.api.state(ApiSource::Shared),
+                                SessionState::Ready { .. }
+                            ),
+                        };
+                        if !other_ready {
                             self.signed_in = false;
                             self.emit(Event::Auth(AuthStatus::Failed(
                                 "Your Spotify sign-in expired. Please sign in again.".into(),
@@ -3039,7 +3049,7 @@ impl Worker {
                 SessionState::Ready { .. }
             ),
         };
-        if source == ApiSource::Shared || !other_ready {
+        if !other_ready {
             self.signed_in = false;
             self.emit(Event::Auth(AuthStatus::Failed(message.clone())));
         }
@@ -3121,8 +3131,15 @@ impl Worker {
         }
     }
 
+    /// The sign-in screen's button: with the personal app when one is set
+    /// up, which is how anyone signs in now that shared access takes no new
+    /// sign-ins.
     fn sign_in(&mut self) {
-        self.sign_in_source(ApiSource::Shared);
+        self.sign_in_source(if self.web_client_id.is_some() {
+            ApiSource::Personal
+        } else {
+            ApiSource::Shared
+        });
     }
 
     fn sign_in_source(&mut self, source: ApiSource) {
@@ -3136,6 +3153,9 @@ impl Worker {
         if self.cancel_signin.is_some() {
             return;
         }
+        // Signing in from the sign-in screen, rather than authorizing a
+        // personal app in Settings while already signed in.
+        let primary = !self.signed_in;
         let grant = match source {
             ApiSource::Shared => crate::auth::Grant::shared_web_api(),
             ApiSource::Personal => {
@@ -3154,7 +3174,7 @@ impl Worker {
         let listener = match crate::auth::listen_for_redirect(grant.redirect_port) {
             Ok(listener) => listener,
             Err(error) => {
-                if source == ApiSource::Shared {
+                if primary {
                     self.emit(Event::Auth(AuthStatus::Failed(error.to_string())));
                 } else {
                     self.emit(Event::Error(error.to_string()));
@@ -3172,7 +3192,7 @@ impl Worker {
         self.cancel_signin = Some(cancel_tx);
         self.authorizing_source = Some(source);
         self.api.set_state(source, SessionState::Authorizing);
-        if source == ApiSource::Shared {
+        if primary {
             self.emit(Event::Auth(AuthStatus::WaitingForBrowser {
                 url: flow.url.clone(),
             }));
@@ -3205,7 +3225,7 @@ impl Worker {
                     });
                 }
                 Err(error) => {
-                    if lease.current() && source == ApiSource::Shared {
+                    if lease.current() && primary {
                         let _ = events.send(Event::Auth(AuthStatus::SignedOut));
                     }
                     let message = error.to_string();
@@ -4629,7 +4649,9 @@ impl Worker {
         if query.is_empty() {
             return;
         }
-        let split = self.api.personal_ready();
+        // Splitting moves playlists to shared access; without it, one request
+        // to the personal app asks for everything.
+        let split = self.api.personal_ready() && self.api.has_shared();
         self.emit(Event::Api(Box::new(ApiResponse::SearchStarted {
             query: query.clone(),
             serial,
@@ -7720,6 +7742,78 @@ mod authorization_tests {
                     .any(|event| matches!(event, Event::Auth(AuthStatus::Connected { .. })))
             );
         });
+    }
+
+    /// Spotify refusing the shared grant of a listener who also has a
+    /// personal app leaves them signed in with it; refusing the personal
+    /// app's grant too, the last one, signs them out.
+    #[test]
+    fn a_refused_shared_grant_leaves_the_personal_app_signed_in() {
+        let (runtime, mut worker, events) = worker("refused-shared-keeps-personal");
+        let _entered = runtime.enter();
+        verify(&mut worker, ApiSource::Shared, "alice");
+        verify(&mut worker, ApiSource::Personal, "alice");
+        let _ = events.try_iter().collect::<Vec<_>>();
+        let finished = |worker: &Worker, expired: ApiSource| Command::ApiFinished {
+            generation: *worker.session.borrow(),
+            home_account: None,
+            response: Box::new(ApiResponse::Me(Err(ApiError::SignInExpired {
+                api_source: expired,
+            }))),
+            expired: vec![expired],
+            shared_lease: worker.credentials.lease(CredentialSlot::Shared),
+            personal_lease: worker.credentials.lease(CredentialSlot::Personal),
+        };
+        let (commands, receiver) = mpsc::unbounded_channel();
+        commands.send(finished(&worker, ApiSource::Shared)).unwrap();
+        commands.send(Command::Shutdown).unwrap();
+        runtime.block_on(worker.run(receiver));
+        assert!(worker.signed_in);
+        assert!(!worker.api.has_shared());
+        assert!(worker.api.personal_ready());
+        assert!(
+            !events
+                .try_iter()
+                .any(|event| matches!(event, Event::Auth(AuthStatus::Failed(_))))
+        );
+
+        let (commands, receiver) = mpsc::unbounded_channel();
+        commands
+            .send(finished(&worker, ApiSource::Personal))
+            .unwrap();
+        commands.send(Command::Shutdown).unwrap();
+        runtime.block_on(worker.run(receiver));
+        assert!(!worker.signed_in);
+        assert!(
+            events
+                .try_iter()
+                .any(|event| matches!(event, Event::Auth(AuthStatus::Failed(_))))
+        );
+    }
+
+    /// With a personal app set up, the sign-in screen's button signs in
+    /// with it, and its problems show on that screen rather than as a toast
+    /// behind it. Shared access takes no new sign-ins.
+    #[test]
+    fn the_sign_in_screen_signs_in_with_the_personal_app() {
+        let (runtime, mut worker, events) = worker("sign-in-with-personal");
+        let _entered = runtime.enter();
+        let _occupied =
+            std::net::TcpListener::bind(("127.0.0.1", crate::auth::WEB_REDIRECT_PORT)).unwrap();
+        worker.sign_in();
+        let received: Vec<_> = events.try_iter().collect();
+        assert!(received.iter().any(|event| matches!(event,
+            Event::Auth(AuthStatus::Failed(message)) if message.contains("8989")
+        )));
+        assert!(
+            !received
+                .iter()
+                .any(|event| matches!(event, Event::Error(_)))
+        );
+        assert_eq!(
+            worker.api.state(ApiSource::Shared),
+            SessionState::Unavailable
+        );
     }
 
     #[test]
