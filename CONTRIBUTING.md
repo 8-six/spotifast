@@ -115,6 +115,15 @@ Local files play from the folder chosen in Settings. A view to browse them,
 several folders and similar requests wait for a design from the maintainer;
 until then they are collected, not promised.
 
+### Other projects' Spotify apps
+
+Spotifast never signs in with another project's Spotify Client ID. Until
+0.14.2 it used ncspot's, which ncspot's developer had registered for ncspot
+alone on their own Spotify account; they closed it to other apps in October
+2026, as was their right. A Client ID belongs to whoever registered it and
+its quota to their users, so the Web API runs on each person's own app, and a
+pull request that adds someone else's Client ID or redirect path is closed.
+
 ### Windowing fixes
 
 Spotifast uses a winit fork shared with other apps, so a fix to how the
