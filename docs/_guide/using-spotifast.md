@@ -599,6 +599,12 @@ resume playback directly from the notch.
 To turn on the notch overlay, check **MacBook notch widget** in
 Settings under **Playback on this computer**.
 
+## Where the music is playing from
+
+Above the current song, the queue panel says what it is playing from: the
+playlist, album, artist or other page. Click the name to open that page. A
+radio has no page, so its name is plain text.
+
 ## Recent
 
 The queue panel's second tab combines Spotify's history with tracks played
