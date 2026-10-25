@@ -5903,7 +5903,12 @@ mod tests {
         sidebar_text(&painted, "Start with your computer");
         sidebar_text(&painted, "Off");
         sidebar_text(&painted, "With the window");
-        let tray = sidebar_text(&painted, "In the tray").center();
+        let (in_tray, starting_in_tray) = if cfg!(target_os = "macos") {
+            ("In the menu bar", "Starting in the menu bar")
+        } else {
+            ("In the tray", "Starting in the tray")
+        };
+        let tray = sidebar_text(&painted, in_tray).center();
         view_frame(
             &ctx,
             &mut app,
@@ -5921,15 +5926,15 @@ mod tests {
         app.settings.keep_playing_in_background = false;
         let painted = view_frame(&ctx, &mut app, vec![], crate::ui::settings::show);
         assert!(painted.iter().any(|(text, _)| {
-            text.starts_with(
-                "Starting in the tray needs Keep music playing when the window closes.",
-            )
+            text.starts_with(&format!(
+                "{starting_in_tray} needs Keep music playing when the window closes."
+            ))
         }));
 
         app.autostart = Some(State::Unsupported);
         let painted = view_frame(&ctx, &mut app, vec![], crate::ui::settings::show);
         assert!(
-            !painted.iter().any(|(text, _)| text == "In the tray"),
+            !painted.iter().any(|(text, _)| text == in_tray),
             "nothing to offer where nothing can be registered"
         );
     }
