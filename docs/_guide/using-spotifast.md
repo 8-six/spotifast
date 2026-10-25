@@ -313,6 +313,11 @@ Winamp skins do not yet have equivalent accessibility coverage.
 On macOS, `Cmd` replaces `Ctrl`. A focused text field keeps its usual keys
 for its own text.
 
+Repeat cycles through off, the whole list, and one song. As in Spotify's own
+apps, choosing another song while one song repeats (Next, Previous, or playing
+a song) turns Repeat One back into repeating the whole list. Previous that
+restarts the song keeps it repeating.
+
 ## Controlling it from the command line
 
 The `spotifast` command controls the copy already running, on every

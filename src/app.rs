@@ -9795,6 +9795,44 @@ impl App {
         }
     }
 
+    /// Whether `action` is the listener choosing another song: Next, a
+    /// Previous that steps back rather than restarting, or starting
+    /// something to play. A play-search only counts once its match plays.
+    fn changes_song_by_hand(&self, action: &Action) -> bool {
+        match action {
+            Action::Next
+            | Action::PlayContext { .. }
+            | Action::PlayUris { .. }
+            | Action::PlayEpisode { .. }
+            | Action::PlayFromRow { .. }
+            | Action::ShufflePlay(_) => true,
+            Action::PlaySearchMatch { serial, .. } => *serial == self.play_search_serial,
+            Action::Previous => {
+                let position = if self.resume_only() {
+                    self.resume_position_ms
+                } else {
+                    self.now_playing().map_or(0, |now| now.position_ms)
+                };
+                position <= RESTART_BEFORE_PREVIOUS
+            }
+            _ => false,
+        }
+    }
+
+    /// Choosing another song ends Repeat One and keeps repeating the rest,
+    /// as Spotify's own clients do (#1022). Repeat All and Off stay as they
+    /// are.
+    fn leave_repeat_one(&mut self) {
+        let mode = match self.now_playing() {
+            Some(now) => now.repeat,
+            None if self.target() == Target::Local => self.local_repeat(),
+            None => return,
+        };
+        if mode == RepeatMode::Track {
+            self.set_repeat(RepeatMode::Context);
+        }
+    }
+
     fn set_repeat(&mut self, mode: RepeatMode) {
         match self.target() {
             Target::Local => {
@@ -10823,6 +10861,9 @@ impl App {
             // ToggleQueuePanel is deliberately absent: in lyrics fullscreen
             // it flips the queue column instead of leaving the view.
             self.leave_lyrics_fullscreen(ctx);
+        }
+        if self.changes_song_by_hand(&action) {
+            self.leave_repeat_one();
         }
         // Pausing or skipping while a play-search is in flight is a newer
         // choice; seeking and volume leave the search to play its match.
@@ -17389,6 +17430,82 @@ mod tests {
         );
     }
 
+    /// Changing songs by hand ends Repeat One and keeps repeating the
+    /// context, as Spotify does; restarting the song, or Repeat All, keeps
+    /// the mode (#1022).
+    #[test]
+    fn changing_songs_by_hand_ends_repeat_one() {
+        let ctx = egui::Context::default();
+        let playing = |repeat, position_ms| {
+            let mut app = headless_app();
+            app.local_ready = true;
+            app.local.track = Some(crate::player::LocalTrack {
+                uri: "spotify:track:one".into(),
+                duration_ms: 200_000,
+                ..Default::default()
+            });
+            app.local.playback = Playback::Paused;
+            app.local.position_ms = position_ms;
+            app.local.repeat = repeat;
+            app
+        };
+        let changes = [
+            Action::Next,
+            Action::Previous,
+            Action::PlayUris {
+                uris: vec!["spotify:track:two".into()],
+                index: 0,
+            },
+            Action::PlayFromRow {
+                context: RowContext::Uris(Arc::from(vec!["spotify:track:two".to_string()])),
+                uri: "spotify:track:two".into(),
+                index: 0,
+            },
+            Action::PlayContext {
+                uri: "spotify:playlist:pl1".into(),
+                offset_uri: None,
+                offset_index: None,
+            },
+            Action::ShufflePlay("spotify:playlist:pl1".into()),
+        ];
+        for action in changes {
+            let label = format!("{action:?}");
+            let mut app = playing(RepeatMode::Track, 1_000);
+            app.apply(action, &ctx);
+            assert_eq!(app.local.repeat, RepeatMode::Context, "{label}");
+            assert_eq!(app.repeat_wanted, RepeatMode::Context, "{label}");
+            app.backend.shutdown();
+        }
+
+        let mut app = playing(RepeatMode::Track, 10_000);
+        app.apply(Action::Previous, &ctx);
+        assert_eq!(
+            app.local.repeat,
+            RepeatMode::Track,
+            "Previous that restarts the song keeps repeating it"
+        );
+        app.apply(Action::Seek(0), &ctx);
+        assert_eq!(app.local.repeat, RepeatMode::Track, "seeking is no change");
+        app.backend.shutdown();
+
+        for repeat in [RepeatMode::Off, RepeatMode::Context] {
+            let mut app = playing(repeat, 1_000);
+            app.apply(Action::Next, &ctx);
+            assert_eq!(app.local.repeat, repeat, "only Repeat One ends");
+            app.backend.shutdown();
+        }
+
+        // A remote device's Repeat One ends the same way.
+        let mut app = headless_app();
+        crate::demo::populate(&mut app);
+        app.local_ready = false;
+        app.remote.as_mut().unwrap().state.repeat_state = "track".into();
+        assert!(matches!(app.target(), Target::Remote(_)));
+        app.apply(Action::Next, &ctx);
+        assert_eq!(app.now_playing().unwrap().repeat, RepeatMode::Context);
+        app.backend.shutdown();
+    }
+
     /// A restored session keeps shuffle enabled when skipping.
     #[test]
     fn skipping_a_restored_song_keeps_shuffle_on() {
@@ -18156,6 +18273,9 @@ mod tests {
             app.handle_local(started);
             assert_eq!(app.manual_queue, ["spotify:track:b"]);
             assert_eq!(app.queued_rows_len(), 1);
+            // Next ended Repeat One (#1022); the listener turns it back on
+            // for the new song.
+            app.apply(Action::SetRepeat(repeat), &ctx);
 
             let mut again = app.local.clone();
             again.track_sequence += 1;
