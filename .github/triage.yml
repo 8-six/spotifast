@@ -123,6 +123,9 @@ instructions: |
   request, check the guides for the feature: the queue's "Playing from" line
   already opens the page that is playing.
 
+  The maintainer waives visual evidence for an interface change that shows
+  nothing new with the no-visual-change label; name it in next_step.
+
   "Spotify refused the audio key" reports: link #283 and
   https://spotifast.rocks/troubleshooting/#audio-key. Rate limits and a slow
   shared app: link https://spotifast.rocks/troubleshooting/#rate-limits. Do
