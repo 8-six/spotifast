@@ -10495,6 +10495,7 @@ mod tests {
             let (ctx, mut app) = accessible_app(&format!("sidebar-drag-scroll-{compact}"));
             app.settings.sidebar_compact = compact;
             app.rootlist.clear();
+            app.home.made_for_you = Loadable::NotLoaded;
             app.settings.pinned_contexts.clear();
             let playlists: Vec<_> = (0..60)
                 .map(|index| {

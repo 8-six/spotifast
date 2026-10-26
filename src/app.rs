@@ -6915,6 +6915,11 @@ impl App {
                         self.request_account_caches();
                     }
                     self.user = Some(user);
+                    // The sidebar lists Spotify's own mixes beside saved
+                    // playlists, so read them even when Home is not open.
+                    if self.home.made_for_you.get().is_none() && !self.home.made_for_you_loading {
+                        self.load_made_for_you(false);
+                    }
                     let page = self.page().clone();
                     self.ensure_loaded(page);
                     if let Some(now) = self.now_playing() {

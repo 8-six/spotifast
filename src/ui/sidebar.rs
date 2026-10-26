@@ -752,6 +752,24 @@ fn playlist_rows(app: &App, sort: LibrarySort, needle: &str, entries: &mut Vec<E
             ));
         }
     }
+    // Spotify's own mixes are not in the saved-playlist list, but the account
+    // sees them in its library. By You, the owned-only view, keeps them out.
+    if !app.settings.library_by_you
+        && let Some(made_for_you) = app.home.made_for_you.get()
+    {
+        let art = EntryArt::of(app);
+        let mut seen: std::collections::HashSet<String> =
+            entries.iter().map(|entry| entry.uri.clone()).collect();
+        for playlist in made_for_you {
+            if !needle.is_empty() && !playlist.name.to_lowercase().contains(needle) {
+                continue;
+            }
+            if !seen.insert(playlist.uri.clone()) {
+                continue;
+            }
+            entries.push(shelf_entry(app.locale, playlist, art));
+        }
+    }
 }
 
 /// Playlist rows in account order, including collapsible folders (#95).
@@ -918,6 +936,29 @@ fn playlist_entry(
         playlist_index: Some(index),
         folder: None,
         depth,
+        added_at: None,
+    }
+}
+
+/// A playlist from one of Spotify's own shelves, such as a Daily Mix. It has
+/// no saved-list index, so the owned-playlist actions stay off its row.
+fn shelf_entry(locale: Locale, playlist: &crate::api::models::Playlist, art: EntryArt) -> Entry {
+    Entry {
+        image: pick_image(&playlist.images, art.row).map(str::to_string),
+        grid_image: pick_image(&playlist.images, art.grid).map(str::to_string),
+        name: playlist.name.clone(),
+        // Translators: {owner} is the name of the playlist's owner.
+        subtitle: gettext(locale, "Playlist • {owner}").replace("{owner}", playlist.owner_name()),
+        grid_subtitle: playlist.owner_name().to_string(),
+        page: Page::Playlist(playlist.id.clone()),
+        uri: playlist.uri.clone(),
+        round: false,
+        liked: false,
+        owned: false,
+        editable: false,
+        playlist_index: None,
+        folder: None,
+        depth: 0,
         added_at: None,
     }
 }
@@ -2216,6 +2257,9 @@ mod ordering_tests {
             },
         );
         crate::demo::populate(&mut app);
+        // These tests order saved playlists. Spotify's own mixes have their
+        // own test below, which loads them itself.
+        app.home.made_for_you = Loadable::NotLoaded;
         app.library.playlists = Loadable::Loaded(
             [
                 ("a", "Zebra"),
@@ -2470,6 +2514,47 @@ mod ordering_tests {
         let restored: Settings =
             serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
         assert!(restored.library_by_you);
+    }
+
+    #[test]
+    fn spotify_mixes_join_the_playlist_shelf_unless_by_you_is_on() {
+        use crate::api::models::Owner;
+        let mut app = ownership_app("made-for-you");
+        let mix = Playlist {
+            id: "daily-mix-1".into(),
+            name: "Daily Mix 1".into(),
+            uri: uri("daily-mix-1"),
+            owner: Owner {
+                id: Some("spotify".into()),
+                display_name: Some("Spotify".into()),
+                uri: None,
+            },
+            ..Default::default()
+        };
+        let duplicate = Playlist {
+            id: "a".into(),
+            name: "Zebra".into(),
+            uri: uri("a"),
+            ..Default::default()
+        };
+        app.home.made_for_you = Loadable::Loaded(vec![mix.clone(), duplicate]);
+        let entries = projected(&app, "");
+        let row = entries
+            .iter()
+            .find(|entry| entry.uri == mix.uri)
+            .expect("a Daily Mix is part of the playlist shelf");
+        assert_eq!(row.playlist_index, None);
+        assert_eq!(
+            entries.iter().filter(|entry| entry.uri == uri("a")).count(),
+            1,
+            "a mix already in the saved list is not repeated"
+        );
+        app.settings.library_by_you = true;
+        assert!(
+            !projected(&app, "").iter().any(|entry| entry.uri == mix.uri),
+            "By You keeps Spotify's own mixes out"
+        );
+        app.backend.shutdown();
     }
 
     #[test]
