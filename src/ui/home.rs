@@ -42,9 +42,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     ui.add_space(6.0);
     let greeting = crate::util::greeting(app.locale);
     theme::text(ui, greeting.as_ref(), theme::bold(36.0), palette.text);
-    ui.add_space(12.0);
-    quick_access(app, ui);
     ui.add_space(16.0);
+    quick_access(app, ui);
+    ui.add_space(8.0);
 
     if app.settings.home.made_for_you.visible {
         made_for_you(app, ui);
@@ -222,7 +222,7 @@ fn quick_access(app: &mut App, ui: &mut egui::Ui) {
                     } else {
                         palette.surface
                     };
-                    ui.painter().rect_filled(rect, CornerRadius::same(6), fill);
+                    ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
                     let cover = Rect::from_min_size(rect.min, Vec2::splat(TILE_HEIGHT));
                     if *liked {
                         super::sidebar::liked_cover(ui, cover, 6.0);
@@ -248,7 +248,7 @@ fn quick_access(app: &mut App, ui: &mut egui::Ui) {
                         text_rect.right(),
                         rect.center().y,
                         name,
-                        theme::bold(14.5),
+                        theme::semibold(15.5),
                         palette.text,
                     );
                     if hovered && let Some(uri) = uri {

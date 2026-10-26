@@ -2647,12 +2647,12 @@ impl CardCover {
 /// Fixed height of a [`card`] row for virtualised grids.
 pub fn card_row_height(ui: &mut Ui) -> f32 {
     const PAD: f32 = 12.0;
-    const TITLE_GAP: f32 = 10.0;
-    const SUBTITLE_GAP: f32 = 2.0;
-    const BOTTOM_PAD: f32 = 8.0;
+    const TITLE_GAP: f32 = 8.0;
+    const SUBTITLE_GAP: f32 = 3.0;
+    const BOTTOM_PAD: f32 = 10.0;
     let image_size = CARD_ART;
-    let title_font = theme::semibold(14.0);
-    let subtitle_font = theme::regular(12.5);
+    let title_font = theme::semibold(15.0);
+    let subtitle_font = theme::regular(13.0);
     let (title_row, subtitle_row) = ui.fonts_mut(|fonts| {
         (
             fonts.row_height(&title_font),
@@ -2678,13 +2678,13 @@ pub fn card(
     } = cover;
     let palette = app.palette;
     const PAD: f32 = 12.0;
-    const TITLE_GAP: f32 = 10.0;
-    const SUBTITLE_GAP: f32 = 2.0;
-    const BOTTOM_PAD: f32 = 8.0;
+    const TITLE_GAP: f32 = 8.0;
+    const SUBTITLE_GAP: f32 = 3.0;
+    const BOTTOM_PAD: f32 = 10.0;
     let image_size = CARD_ART;
     let text_width = image_size;
-    let title_font = theme::semibold(14.0);
-    let subtitle_font = theme::regular(12.5);
+    let title_font = theme::semibold(15.0);
+    let subtitle_font = theme::regular(13.0);
     // Every card reserves the title row and two subtitle rows, whatever its
     // own subtitle needs: a two-line subtitle then sits inside the hover
     // background, and a shelf that mixes one- and two-line subtitles keeps
@@ -2807,7 +2807,7 @@ pub fn shelf(
     title: &str,
     add_contents: impl FnOnce(&mut Ui),
 ) {
-    ui.add_space(8.0);
+    ui.add_space(16.0);
     theme::section_title(ui, palette, title);
     shelf_cards(ui, id, add_contents);
 }
@@ -2821,7 +2821,7 @@ pub fn linked_shelf(
     title: &str,
     add_contents: impl FnOnce(&mut Ui),
 ) -> bool {
-    ui.add_space(8.0);
+    ui.add_space(16.0);
     let clicked = theme::link(
         ui,
         title,
@@ -2834,7 +2834,7 @@ pub fn linked_shelf(
 }
 
 fn shelf_cards(ui: &mut Ui, id: &str, add_contents: impl FnOnce(&mut Ui)) {
-    ui.add_space(4.0);
+    ui.add_space(8.0);
     crate::autoscroll::show(
         ui,
         egui::ScrollArea::horizontal().id_salt(id),
