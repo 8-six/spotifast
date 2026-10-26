@@ -215,9 +215,8 @@ A release is not the tag alone. Do these in order:
 
 1. Change the `Cargo.toml` version, add the matching release to the Flatpak
    metainfo, and update the lockfile with a build.
-   Refresh the `flake.nix` vendor hash when the lockfile changes, even when
-   only the package version changed. Verify `nix build .#default` locally or
-   in CI. Wait for every required CI job on the release commit before tagging.
+   The Nix package reads the lockfile itself, so it needs no hash. Verify
+   `nix build .#default` locally or in CI. Wait for every required CI job on the release commit before tagging.
    Commit and push this before the tag so the binaries report the right
    version. Include written notes in `packaging/release-notes/vVERSION.md`
    so the release publishes the real description immediately.

@@ -276,8 +276,8 @@ redeploying; the previous hostname keeps working until that switch. Renamed
 guides use `jekyll-redirect-from` to preserve their old URLs.
 
 When changing `Cargo.lock` or `flake.nix`, also verify `nix build .#default`
-on a Nix host or wait for the Nix CI job. A package-version-only lockfile
-change can change the vendor hash. Releases must wait for all required CI
+on a Nix host or wait for the Nix CI job. The package reads `Cargo.lock`
+directly, so a dependency update needs no hash in `flake.nix`. Releases must wait for all required CI
 jobs on the version commit before the tag is pushed.
 
 By contributing, you agree that your contribution is licensed under the
