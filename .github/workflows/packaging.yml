@@ -128,7 +128,7 @@ jobs:
           set -- dist/appimage/packages/"$TARGET"/appimage/spotifast-*-"$ARCH".AppImage
           test "$#" -eq 1
           "$1" --appimage-extract-and-run --version | grep -Ex 'spotifast [0-9]+\.[0-9]+\.[0-9]+.*'
-          expected="gh-releases-zsync|crmne|spotifast|latest|spotifast-*-$ARCH.AppImage.zsync"
+          expected="gh-releases-zsync|8-six|spotifast|latest|spotifast-*-$ARCH.AppImage.zsync"
           found=$("$1" --appimage-updateinformation)
           test "$found" = "$expected" || { echo "Update information: $found" >&2; exit 1; }
           python3 packaging/check-appimage.py "$1" "$ARCH"

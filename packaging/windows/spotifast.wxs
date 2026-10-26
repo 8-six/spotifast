@@ -75,7 +75,7 @@
     <Icon Id="spotifast.ico" SourceFile="$(Icon)" />
     <Property Id="ARPPRODUCTICON" Value="spotifast.ico" />
     <Property Id="ARPURLINFOABOUT" Value="https://spotifast.rocks" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/crmne/spotifast/issues" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/8-six/spotifast/issues" />
     <Property Id="ARPURLUPDATEINFO" Value="https://spotifast.rocks/download/" />
     <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="ARPNOREPAIR" Value="1" />

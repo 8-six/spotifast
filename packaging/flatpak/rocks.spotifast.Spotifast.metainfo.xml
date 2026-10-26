@@ -23,17 +23,17 @@
   </description>
   <launchable type="desktop-id">rocks.spotifast.Spotifast.desktop</launchable>
   <url type="homepage">https://spotifast.rocks/</url>
-  <url type="bugtracker">https://github.com/crmne/spotifast/issues</url>
+  <url type="bugtracker">https://github.com/8-six/spotifast/issues</url>
   <url type="help">https://spotifast.rocks/getting-started/</url>
-  <url type="vcs-browser">https://github.com/crmne/spotifast</url>
+  <url type="vcs-browser">https://github.com/8-six/spotifast</url>
   <screenshots>
     <screenshot type="default">
       <caption>A playlist, with the queue open and a track playing on a remote speaker</caption>
-      <image>https://raw.githubusercontent.com/crmne/spotifast/main/docs/screenshot.png</image>
+      <image>https://raw.githubusercontent.com/8-six/spotifast/main/docs/screenshot.png</image>
     </screenshot>
     <screenshot>
       <caption>The mini player wearing the built-in Winamp skin</caption>
-      <image>https://raw.githubusercontent.com/crmne/spotifast/main/docs/assets/images/winamp.png</image>
+      <image>https://raw.githubusercontent.com/8-six/spotifast/main/docs/assets/images/winamp.png</image>
     </screenshot>
   </screenshots>
   <branding>
@@ -51,73 +51,73 @@
   </supports>
   <releases>
     <release version="0.14.2" date="2026-10-26">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.14.2</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.14.2</url>
     </release>
     <release version="0.14.1" date="2026-10-20">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.14.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.14.1</url>
     </release>
     <release version="0.14.0" date="2026-10-20">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.14.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.14.0</url>
     </release>
     <release version="0.13.3" date="2026-10-15">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.13.3</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.13.3</url>
     </release>
     <release version="0.13.2" date="2026-10-14">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.13.2</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.13.2</url>
     </release>
     <release version="0.13.1" date="2026-10-14">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.13.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.13.1</url>
     </release>
     <release version="0.13.0" date="2026-10-13">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.13.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.13.0</url>
     </release>
     <release version="0.12.0" date="2026-10-03">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.12.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.12.0</url>
     </release>
     <release version="0.11.2" date="2026-09-30">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.11.2</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.11.2</url>
     </release>
     <release version="0.11.1" date="2026-09-30">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.11.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.11.1</url>
     </release>
     <release version="0.11.0" date="2026-09-26">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.11.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.11.0</url>
     </release>
     <release version="0.10.2" date="2026-09-25">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.10.2</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.10.2</url>
     </release>
     <release version="0.10.1" date="2026-09-24">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.10.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.10.1</url>
     </release>
     <release version="0.10.0" date="2026-09-24">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.10.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.10.0</url>
     </release>
     <release version="0.9.1" date="2026-09-22">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.9.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.9.1</url>
     </release>
     <release version="0.9.0" date="2026-09-21">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.9.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.9.0</url>
     </release>
     <release version="0.8.0" date="2026-09-14">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.8.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.8.0</url>
     </release>
     <release version="0.7.1" date="2026-09-09">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.7.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.7.1</url>
     </release>
     <release version="0.7.0" date="2026-09-06">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.7.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.7.0</url>
     </release>
     <release version="0.5.0-rc1" date="2026-09-01" type="development">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.5.0-rc1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.5.0-rc1</url>
     </release>
     <release version="0.4.1" date="2026-08-31">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.4.1</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.4.1</url>
     </release>
     <release version="0.4.0" date="2026-08-30">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.4.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.4.0</url>
     </release>
     <release version="0.3.0" date="2026-08-29">
-      <url>https://github.com/crmne/spotifast/releases/tag/v0.3.0</url>
+      <url>https://github.com/8-six/spotifast/releases/tag/v0.3.0</url>
     </release>
   </releases>
 </component>

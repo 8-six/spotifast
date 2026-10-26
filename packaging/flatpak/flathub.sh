@@ -24,7 +24,7 @@ import sys
 src, dst, tag, commit = sys.argv[1:]
 text = open(src).read()
 old = "      - type: dir\n        path: ../..\n"
-new = f"      - type: git\n        url: https://github.com/crmne/spotifast.git\n        tag: {tag}\n        commit: {commit}\n"
+new = f"      - type: git\n        url: https://github.com/8-six/spotifast.git\n        tag: {tag}\n        commit: {commit}\n"
 assert old in text, "the source block moved"
 open(dst, "w").write(text.replace(old, new))
 PY

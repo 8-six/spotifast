@@ -18,6 +18,7 @@ permissions:
 # Copilot Triage's own workflow does the rest, and updates with its v0 tag.
 jobs:
   sweep:
+    if: github.repository_owner == 'crmne'
     uses: crmne/copilot-triage/.github/workflows/sweep.yml@v0
     secrets: inherit
     with:

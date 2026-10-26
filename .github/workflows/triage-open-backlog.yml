@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   discover:
+    if: github.repository_owner == 'crmne'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.reports.outputs.matrix }}

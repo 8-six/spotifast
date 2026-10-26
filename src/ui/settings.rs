@@ -2789,7 +2789,7 @@ mod tests {
         assert_eq!(
             RELEASE_NOTES_URL,
             format!(
-                "https://github.com/crmne/spotifast/releases/tag/v{}",
+                "https://github.com/8-six/spotifast/releases/tag/v{}",
                 env!("CARGO_PKG_VERSION")
             )
         );

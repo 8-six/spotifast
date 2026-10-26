@@ -16,7 +16,7 @@ hero:
       link: /what-is-spotifast/
     - theme: alt
       text: GitHub
-      link: https://github.com/crmne/spotifast
+      link: https://github.com/8-six/spotifast
   image:
     src: /screenshot.png
     alt: "Spotifast Home with the playlist library, recommendations, queue, and player visible"
@@ -55,7 +55,7 @@ features:
   - icon: 🔓
     title: Open source
     details: Free to use, study, and improve. Explore the code, report a problem, or help build the next version.
-    link: https://github.com/crmne/spotifast
+    link: https://github.com/8-six/spotifast
     link_text: Read the source
 ---
 

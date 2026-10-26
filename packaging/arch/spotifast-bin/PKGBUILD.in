@@ -4,7 +4,7 @@ pkgver=@VERSION@
 pkgrel=@PKGREL@
 pkgdesc="Native Spotify client"
 arch=('x86_64' 'aarch64')
-url="https://github.com/crmne/spotifast"
+url="https://github.com/8-six/spotifast"
 license=('MIT')
 install="${pkgname}.install"
 # alsa-lib and libpipewire are linked directly; the rest are dlopened by winit
@@ -16,7 +16,7 @@ optdepends=('libxkbcommon-x11: keyboard handling in X11 sessions'
 provides=("spotifast=$pkgver")
 conflicts=('spotifast' 'spotifast-git')
 options=('!debug' '!strip')
-_repo="https://github.com/crmne/spotifast"
+_repo="https://github.com/8-six/spotifast"
 source_x86_64=("${_repo}/releases/download/v${pkgver}/spotifast-v${pkgver}-x86_64-unknown-linux-gnu.tar.gz")
 source_aarch64=("${_repo}/releases/download/v${pkgver}/spotifast-v${pkgver}-aarch64-unknown-linux-gnu.tar.gz")
 sha256sums_x86_64=('@AMD64_SHA256@')

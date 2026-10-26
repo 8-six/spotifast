@@ -57,7 +57,7 @@ jekyll_vitepress:
       name: Carmine Paolino
       url: https://paolino.me
       same_as:
-        - https://github.com/crmne/spotifast
+        - https://github.com/8-six/spotifast
   llms:
     title: Spotifast
     description: >-
@@ -68,7 +68,7 @@ jekyll_vitepress:
     details: >-
       Covers installation, sign-in, everyday use, settings, and Spotify
       connections. Source is on
-      [GitHub](https://github.com/crmne/spotifast).
+      [GitHub](https://github.com/8-six/spotifast).
   branding:
     site_title: Spotifast
     logo:
@@ -94,16 +94,16 @@ jekyll_vitepress:
     format: "%Y-%m-%d %H:%M"
   edit_link:
     enabled: true
-    pattern: "https://github.com/crmne/spotifast/edit/main/docs/:path"
+    pattern: "https://github.com/8-six/spotifast/edit/main/docs/:path"
     text: Edit this page on GitHub
   github_star:
     enabled: true
-    repository: crmne/spotifast
+    repository: 8-six/spotifast
     text: Star
     show_count: true
   github_sponsor:
     enabled: true
-    user: crmne
+    user: 8-six
     text: Sponsor
 
 plugins:

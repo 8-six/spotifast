@@ -5,7 +5,7 @@ nav_order: 1
 ---
 
 {% assign v = site.spotifast_version %}
-{% assign base = "https://github.com/crmne/spotifast/releases/download/v" | append: v %}
+{% assign base = "https://github.com/8-six/spotifast/releases/download/v" | append: v %}
 {% comment %} Releases after 0.12.0 ship a Windows Installer package (.msi). {% endcomment %}
 {% assign version = v | split: "." %}
 {% assign major = version[0] | plus: 0 %}
@@ -17,7 +17,7 @@ nav_order: 1
 The current version is **v{{ v }}**. You can use the
 [download checksums]({{ base }}/checksums.txt) to check that a file has not
 been damaged or changed. Older versions are on the
-[releases page](https://github.com/crmne/spotifast/releases).
+[releases page](https://github.com/8-six/spotifast/releases).
 
 ## macOS
 
@@ -98,7 +98,7 @@ Get-FileHash "$HOME\Downloads\spotifast-v{{ v }}-*-pc-windows-msvc*"
 If Windows Security flags a download, open **Windows Security → Virus &
 threat protection → Protection history** and note the threat name. Include it,
 and the file's hash, when you
-[report the problem](https://github.com/crmne/spotifast/issues/new?template=bug.yml).
+[report the problem](https://github.com/8-six/spotifast/issues/new?template=bug.yml).
 To ask Microsoft to review the file, send it through
 [Submit a file for malware analysis](https://www.microsoft.com/en-us/wdsi/filesubmission)
 as incorrectly detected.
@@ -173,11 +173,11 @@ Or build from source: see the [build instructions](/getting-started/#build-from-
 
 ## Nix
 
-Add the repository [flake](https://github.com/crmne/spotifast) to your
+Add the repository [flake](https://github.com/8-six/spotifast) to your
 inputs:
 
 ```nix
-inputs.spotifast.url = "github:crmne/spotifast";
+inputs.spotifast.url = "github:8-six/spotifast";
 ```
 
 On NixOS, install the default package:

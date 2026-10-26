@@ -4,7 +4,7 @@ pkgver=@VERSION@
 pkgrel=1
 pkgdesc="Native Spotify client"
 arch=('x86_64' 'aarch64')
-url="https://github.com/crmne/spotifast"
+url="https://github.com/8-six/spotifast"
 license=('MIT')
 install="${pkgname}.install"
 depends=('dbus' 'alsa-lib' 'libpipewire' 'libglvnd' 'libxkbcommon' 'wayland' 'libx11')
@@ -21,7 +21,7 @@ conflicts=('spotifast' 'spotifast-bin')
 # undefined ring_core_* symbols. The stable package is prebuilt and never
 # meets this.
 options=('!debug' '!lto')
-source=("${pkgname}::git+https://github.com/crmne/spotifast.git")
+source=("${pkgname}::git+https://github.com/8-six/spotifast.git")
 sha256sums=('SKIP')
 
 pkgver() {

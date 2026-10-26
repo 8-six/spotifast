@@ -186,7 +186,7 @@ See [proxy options and limits](/how-it-connects/#proxy).
 Build the single binary with Rust 1.98 or newer:
 
 ```bash
-cargo install --git https://github.com/crmne/spotifast --locked
+cargo install --git https://github.com/8-six/spotifast --locked
 ```
 
 MilkDrop uses libprojectM, which is built from source. This needs CMake, a C++

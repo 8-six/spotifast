@@ -59,7 +59,7 @@ https://github.com/user-attachments/assets/a5f669ce-b3b7-4f8e-9933-976a78876c7e
 
 | Platform | Installation |
 |---|---|
-| **macOS** | `brew install --cask crmne/tap/spotifast`, or [download the Mac app](https://spotifast.rocks/download/#macos). |
+| **macOS** | `brew install --cask 8-six/tap/spotifast`, or [download the Mac app](https://spotifast.rocks/download/#macos). |
 | **Arch Linux** | `yay -S spotifast-bin` |
 | **Windows** | Choose your build on the [Download page](https://spotifast.rocks/download/). |
 | **Other Linux** | Find Flatpak, AppImage, Nix, and other options on the [Download page](https://spotifast.rocks/download/). |
@@ -126,7 +126,7 @@ The complete guide lives at **[spotifast.rocks](https://spotifast.rocks/)**.
 | Understand what is stored and sent | [Privacy](https://spotifast.rocks/privacy/) · [How it connects](https://spotifast.rocks/how-it-connects/) |
 | Check Spotify and librespot limitations | [What Spotify allows](https://spotifast.rocks/what-spotify-allows/) |
 | Understand account risk | [Will my account get banned?](https://spotifast.rocks/what-is-spotifast/#will-my-spotify-account-get-banned) |
-| Report a bug or propose a feature | Read [Contributing](CONTRIBUTING.md), then use the [issue forms](https://github.com/crmne/spotifast/issues/new/choose). |
+| Report a bug or propose a feature | Read [Contributing](CONTRIBUTING.md), then use the [issue forms](https://github.com/8-six/spotifast/issues/new/choose). |
 
 ## Contributing
 
@@ -165,9 +165,9 @@ Licensed under the [MIT License](LICENSE).
 
 ## Star history
 
-<a href="https://www.star-history.com/?repos=crmne%2Fspotifast&amp;type=date">
+<a href="https://www.star-history.com/?repos=8-six%2Fspotifast&amp;type=date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=crmne/spotifast&amp;type=date&amp;theme=dark">
-    <img alt="Spotifast GitHub stars over time" src="https://api.star-history.com/chart?repos=crmne/spotifast&amp;type=date">
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=8-six/spotifast&amp;type=date&amp;theme=dark">
+    <img alt="Spotifast GitHub stars over time" src="https://api.star-history.com/chart?repos=8-six/spotifast&amp;type=date">
   </picture>
 </a>
