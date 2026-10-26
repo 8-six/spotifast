@@ -2042,13 +2042,17 @@ impl Worker {
         match update {
             crate::soloist::Update::Status(_) => self.emit_soloist_status(),
             crate::soloist::Update::Paired(result) => {
-                self.emit(Event::SoloistPaired(result.clone()));
-                if result.is_ok() {
-                    match self.http.client() {
+                match &result {
+                    // Pairing stopped the daemon. Start it again on the
+                    // session the pairing just wrote, or say why it is not
+                    // running instead of leaving "Pairing" on screen.
+                    Ok(()) => match self.http.client() {
                         Ok(client) => self.soloist.restart(client),
                         Err(error) => self.soloist.fail(error),
-                    }
+                    },
+                    Err(error) => self.soloist.fail(error.clone()),
                 }
+                self.emit(Event::SoloistPaired(result));
                 self.emit_soloist_status();
             }
         }
