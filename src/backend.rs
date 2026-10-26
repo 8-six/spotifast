@@ -756,6 +756,8 @@ pub enum Command {
     },
     /// Keep the Soloist API key in the platform credential store.
     StoreSoloistKey(String),
+    /// Forget the Soloist API key and stop the daemon.
+    RemoveSoloistKey,
     /// Pair this computer with the listener's Spotify app through Soloist.
     PairSoloist,
     /// Start Soloist again after it stopped.
@@ -1024,6 +1026,7 @@ pub enum Event {
         key_saved: bool,
     },
     SoloistKeyStored(Result<(), String>),
+    SoloistKeyRemoved(Result<(), String>),
     SoloistPaired(Result<(), String>),
     /// Receivers seen on the local network that Spotify has not listed.
     Receivers(Vec<crate::zeroconf::Receiver>),
@@ -2040,7 +2043,10 @@ impl Worker {
 
     fn on_soloist_update(&mut self, update: crate::soloist::Update) {
         match update {
-            crate::soloist::Update::Status(_) => self.emit_soloist_status(),
+            crate::soloist::Update::Status(status) => {
+                self.soloist.note_status(status);
+                self.emit_soloist_status();
+            }
             crate::soloist::Update::Paired(result) => {
                 match &result {
                     // Pairing stopped the daemon. Start it again on the
@@ -2119,6 +2125,25 @@ impl Worker {
                 self.configure_soloist(enabled, device_name).await;
             }
             Err(error) => self.emit(Event::SoloistKeyStored(Err(error.to_string()))),
+        }
+    }
+
+    async fn remove_soloist_key(&mut self) {
+        let removed = self
+            .credentials
+            .lease(CredentialSlot::Soloist)
+            .delete()
+            .await;
+        match removed {
+            Ok(()) => {
+                self.soloist_key = None;
+                self.soloist_key_loaded = true;
+                self.emit(Event::SoloistKeyRemoved(Ok(())));
+                let enabled = self.soloist_enabled;
+                let device_name = self.soloist_device_name.clone();
+                self.configure_soloist(enabled, device_name).await;
+            }
+            Err(error) => self.emit(Event::SoloistKeyRemoved(Err(error.to_string()))),
         }
     }
 
@@ -2487,6 +2512,7 @@ impl Worker {
                     device_name,
                 } => self.configure_soloist(enabled, device_name).await,
                 Command::StoreSoloistKey(key) => self.store_soloist_key(key).await,
+                Command::RemoveSoloistKey => self.remove_soloist_key().await,
                 Command::PairSoloist => self.pair_soloist(),
                 Command::RestartSoloist => match self.http.client() {
                     Ok(client) => {

@@ -2511,6 +2511,10 @@ impl App {
                     self.toast(gettext(self.locale, "Soloist API key saved"));
                 }
                 Event::SoloistKeyStored(Err(error)) => self.toast_error(error),
+                Event::SoloistKeyRemoved(Ok(())) => {
+                    self.toast(gettext(self.locale, "Soloist API key removed"));
+                }
+                Event::SoloistKeyRemoved(Err(error)) => self.toast_error(error),
                 Event::SoloistPaired(Ok(())) => {
                     self.toast(gettext(self.locale, "Spotify Soloist paired"));
                 }
@@ -6078,6 +6082,15 @@ impl App {
             .iter()
             .find(|device| device.name == name)
             .and_then(|device| device.id.as_deref())
+    }
+
+    /// Whether the Connect device playing now is Soloist.
+    pub fn soloist_in_use(&self) -> bool {
+        self.settings.soloist_enabled
+            && matches!(self.soloist_status, crate::soloist::Status::Running)
+            && self
+                .soloist_device_id()
+                .is_some_and(|id| self.selected_device.as_deref() == Some(id))
     }
 
     fn refresh_queue(&mut self, force: bool) {
@@ -12081,6 +12094,9 @@ impl App {
             }
             Action::SaveSoloistKey(key) => {
                 self.backend.send(Command::StoreSoloistKey(key));
+            }
+            Action::RemoveSoloistKey => {
+                self.backend.send(Command::RemoveSoloistKey);
             }
             Action::PairSoloist => {
                 self.backend.send(Command::PairSoloist);

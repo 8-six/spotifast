@@ -401,6 +401,12 @@ impl Runtime {
         &self.status
     }
 
+    /// Mirror a status the supervisor reported, so the next read and the
+    /// next status event carry the same state.
+    pub fn note_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
     /// Report a failure found outside the download and process code, such as
     /// a network client that could not be built.
     pub fn fail(&mut self, message: String) {

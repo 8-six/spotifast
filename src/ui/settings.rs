@@ -674,7 +674,6 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let playback = gettext(locale, "Playback on this computer");
     let soloist = gettext(locale, "Spotify Soloist");
     let soloist_key = gettext(locale, "Soloist API key");
-    let (soloist_state, soloist_detail) = soloist_status_text(locale, &app.soloist_status);
     let normalize_volume = gettext(locale, "Normalize volume");
     let autoplay = gettext(locale, "Autoplay");
     let gapless = gettext(locale, "Gapless playback");
@@ -786,22 +785,6 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         )
         .when(!cfg!(target_os = "macos")),
         RowText::new(start_with_computer.clone(), start_detail).when(start_available),
-        RowText::new(
-            soloist.clone(),
-            gettext(
-                locale,
-                "Play through Spotify's own Connect client. This computer stays the default device.",
-            ),
-        ),
-        RowText::new(
-            soloist_key.clone(),
-            gettext(
-                locale,
-                "From Spotify's Soloist dashboard. Stored in your system keychain.",
-            ),
-        )
-        .when(app.settings.soloist_enabled),
-        RowText::new(soloist_state, soloist_detail).when(app.settings.soloist_enabled),
     ];
     if section_matches(&needle, &playback, &playback_rows) {
         any_visible = true;
@@ -1018,75 +1001,6 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     start_choice,
                 );
             }
-            filtered_row(ui, &palette, &needle, &playback, &playback_rows[18], |ui| {
-                if widgets::switch(ui, &palette, &soloist, &mut app.settings.soloist_enabled)
-                    .changed()
-                {
-                    changed = true;
-                }
-            });
-            if app.settings.soloist_enabled {
-                filtered_row(ui, &palette, &needle, &playback, &playback_rows[19], |ui| {
-                    ui.horizontal(|ui| {
-                        Frame::new()
-                            .fill(palette.surface)
-                            .corner_radius(CornerRadius::same(6))
-                            .inner_margin(Margin::symmetric(10, 6))
-                            .show(ui, |ui| {
-                                widgets::text_edit(
-                                    ui,
-                                    locale,
-                                    egui::TextEdit::singleline(&mut app.soloist_key_draft)
-                                        .password(true)
-                                        .hint_text(if app.soloist_key_saved {
-                                            gettext(locale, "Saved in your keychain")
-                                        } else {
-                                            gettext(locale, "Paste your Soloist API key")
-                                        })
-                                        .font(theme::regular(14.0))
-                                        .frame(egui::Frame::NONE)
-                                        .desired_width(220.0),
-                                );
-                            });
-                        let save = gettext(locale, "Save key");
-                        if theme::soft_button(ui, &palette, None, &save, false).clicked()
-                            && !app.soloist_key_draft.trim().is_empty()
-                        {
-                            app.actions.push(Action::SaveSoloistKey(
-                                app.soloist_key_draft.trim().to_owned(),
-                            ));
-                        }
-                    });
-                });
-                filtered_row(ui, &palette, &needle, &playback, &playback_rows[20], |ui| {
-                    ui.horizontal(|ui| {
-                        let pair = gettext(locale, "Pair device");
-                        let busy = matches!(
-                            app.soloist_status,
-                            crate::soloist::Status::Pairing
-                                | crate::soloist::Status::Downloading
-                                | crate::soloist::Status::Starting
-                        );
-                        if theme::soft_button(ui, &palette, None, &pair, false).clicked() && !busy {
-                            app.actions.push(Action::PairSoloist);
-                        }
-                        if matches!(app.soloist_status, crate::soloist::Status::Failed(_)) {
-                            let restart = gettext(locale, "Start again");
-                            if theme::soft_button(
-                                ui,
-                                &palette,
-                                Some(Icon::Refresh),
-                                &restart,
-                                false,
-                            )
-                            .clicked()
-                            {
-                                app.actions.push(Action::RestartSoloist);
-                            }
-                        }
-                    });
-                });
-            }
             #[cfg(target_os = "macos")]
             filtered_row(ui, &palette, &needle, &playback, &playback_rows[13], |ui| {
                 if widgets::switch(
@@ -1235,6 +1149,119 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     }
                 });
             }
+        });
+    }
+
+    // Soloist is its own engine with its own key and pairing, so it gets
+    // its own card rather than sharing the built-in player's settings.
+    let (soloist_state, soloist_detail) = if app.soloist_in_use() {
+        (
+            gettext(locale, "In use"),
+            gettext(
+                locale,
+                "Playback is going through Spotify Soloist on this computer.",
+            ),
+        )
+    } else {
+        soloist_status_text(locale, &app.soloist_status)
+    };
+    let soloist_rows = [
+        RowText::new(
+            soloist.clone(),
+            gettext(
+                locale,
+                "Play through Spotify's own Connect client. This computer stays the default device.",
+            ),
+        ),
+        RowText::new(
+            soloist_key.clone(),
+            gettext(
+                locale,
+                "From Spotify's Soloist dashboard. Stored in your system keychain.",
+            ),
+        )
+        .when(app.settings.soloist_enabled),
+        RowText::new(soloist_state, soloist_detail).when(app.settings.soloist_enabled),
+    ];
+    if section_matches(&needle, &soloist, &soloist_rows) {
+        any_visible = true;
+        section(ui, &palette, &soloist, |ui| {
+            filtered_row(ui, &palette, &needle, &soloist, &soloist_rows[0], |ui| {
+                if widgets::switch(ui, &palette, &soloist, &mut app.settings.soloist_enabled)
+                    .changed()
+                {
+                    changed = true;
+                }
+            });
+            if !app.settings.soloist_enabled {
+                return;
+            }
+            filtered_row(ui, &palette, &needle, &soloist, &soloist_rows[1], |ui| {
+                if app.soloist_key_saved {
+                    ui.horizontal(|ui| {
+                        theme::subtle(
+                            ui,
+                            &palette,
+                            &gettext(locale, "Your API key is saved in the system keychain."),
+                        );
+                        let remove = gettext(locale, "Remove key");
+                        if theme::soft_button(ui, &palette, Some(Icon::Trash), &remove, false)
+                            .clicked()
+                        {
+                            app.actions.push(Action::RemoveSoloistKey);
+                        }
+                    });
+                    return;
+                }
+                ui.horizontal(|ui| {
+                    Frame::new()
+                        .fill(palette.surface)
+                        .corner_radius(CornerRadius::same(6))
+                        .inner_margin(Margin::symmetric(10, 6))
+                        .show(ui, |ui| {
+                            widgets::text_edit(
+                                ui,
+                                locale,
+                                egui::TextEdit::singleline(&mut app.soloist_key_draft)
+                                    .password(true)
+                                    .hint_text(gettext(locale, "Paste your Soloist API key"))
+                                    .font(theme::regular(14.0))
+                                    .frame(egui::Frame::NONE)
+                                    .desired_width(220.0),
+                            );
+                        });
+                    let save = gettext(locale, "Save key");
+                    if theme::soft_button(ui, &palette, None, &save, false).clicked()
+                        && !app.soloist_key_draft.trim().is_empty()
+                    {
+                        app.actions.push(Action::SaveSoloistKey(
+                            app.soloist_key_draft.trim().to_owned(),
+                        ));
+                    }
+                });
+            });
+            filtered_row(ui, &palette, &needle, &soloist, &soloist_rows[2], |ui| {
+                ui.horizontal(|ui| {
+                    let pair = gettext(locale, "Pair device");
+                    let busy = matches!(
+                        app.soloist_status,
+                        crate::soloist::Status::Pairing
+                            | crate::soloist::Status::Downloading
+                            | crate::soloist::Status::Starting
+                    );
+                    if theme::soft_button(ui, &palette, None, &pair, false).clicked() && !busy {
+                        app.actions.push(Action::PairSoloist);
+                    }
+                    if matches!(app.soloist_status, crate::soloist::Status::Failed(_)) {
+                        let restart = gettext(locale, "Start again");
+                        if theme::soft_button(ui, &palette, Some(Icon::Refresh), &restart, false)
+                            .clicked()
+                        {
+                            app.actions.push(Action::RestartSoloist);
+                        }
+                    }
+                });
+            });
         });
     }
 

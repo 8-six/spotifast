@@ -1376,6 +1376,8 @@ pub enum Action {
     RestartEngine,
     /// Keep the Soloist API key in the platform credential store.
     SaveSoloistKey(String),
+    /// Forget the Soloist API key and stop the daemon.
+    RemoveSoloistKey,
     /// Pair this computer through Soloist and the Spotify app.
     PairSoloist,
     /// Start Soloist again after it stopped.
