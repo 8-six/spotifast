@@ -80,6 +80,16 @@ https://github.com/user-attachments/assets/a5f669ce-b3b7-4f8e-9933-976a78876c7e
 4. Complete the separate playback approval in your browser. Your computer
    appears as a Spotify Connect device named **Spotifast**.
 
+If you prefer Spotify's own headless Connect client, turn on **Spotify
+Soloist** under **Settings > Playback on this computer**, paste an API key
+from the [Soloist dashboard](https://developer.spotify.com/dashboard), and
+choose **Pair device**. Spotifast downloads Spotify's official build for
+this computer at first use and keeps it up to date. Playback then goes
+through a device named **Spotifast (Soloist)**, which the app selects by
+default. Your library still loads through the streaming session, so folders
+and fast playlist reads stay. Equalizer, visualisers, crossfade, and local
+files only shape the built-in player, not Soloist's audio.
+
 Library access and local playback have separate approvals. Spotifast remembers
 both using your computer's protected storage. See
 [Getting started](https://spotifast.rocks/getting-started/) for the full walkthrough

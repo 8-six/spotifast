@@ -111,11 +111,18 @@ impl<'a> Archive<'a> {
     }
 
     pub fn read(&self, entry: &Entry) -> Result<Vec<u8>, ZipError> {
+        self.read_limit(entry, ENTRY_LIMIT)
+    }
+
+    /// Read one entry against a caller's own size limit. Soloist's official
+    /// Windows archive is a zip too, and its executable is larger than any
+    /// skin bitmap.
+    pub fn read_limit(&self, entry: &Entry, limit: usize) -> Result<Vec<u8>, ZipError> {
         if entry.flags & ENCRYPTED != 0 {
             return Err(ZipError::Encrypted(entry.name.clone()));
         }
         // 0xFFFF_FFFF is the zip64 marker; skins never need it.
-        if entry.size > ENTRY_LIMIT || entry.compressed_size == u32::MAX as usize {
+        if entry.size > limit || entry.compressed_size == u32::MAX as usize {
             return Err(ZipError::TooLarge(entry.name.clone()));
         }
         let data = self.data;

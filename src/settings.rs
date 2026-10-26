@@ -281,6 +281,10 @@ pub struct Settings {
     pub audio_buffer_ms: u32,
     pub audio_cache: bool,
     pub audio_cache_mb: u64,
+    /// Play through Spotify's own Soloist Connect client, which is the
+    /// default device. The librespot session stays connected for quick
+    /// library and playlist reads.
+    pub soloist_enabled: bool,
     /// The folder, searched with its subfolders, that a playlist's
     /// `spotify:local:` songs play from; `None` plays none.
     pub local_files_folder: Option<String>,
@@ -492,6 +496,7 @@ impl Default for Settings {
             audio_buffer_ms: default_buffer_ms(),
             audio_cache: true,
             audio_cache_mb: 1024,
+            soloist_enabled: false,
             theme: ThemeChoice::System,
             language: LanguageChoice::System,
             custom_theme: None,

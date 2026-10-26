@@ -798,6 +798,11 @@ pub struct App {
     /// The window's pixels per point when it last drew, so artwork chosen
     /// away from the drawing code fits the display it lands on.
     pub pixels_per_point: f32,
+    /// Spotify Soloist, the default playback device: its last reported
+    /// state, whether an API key is stored, and the key being typed.
+    pub soloist_status: crate::soloist::Status,
+    pub soloist_key_saved: bool,
+    pub soloist_key_draft: String,
     /// The account whose caches may preload before `/me` answers.
     last_account: Option<String>,
 }
@@ -1129,6 +1134,9 @@ impl App {
             output_devices: Loadable::NotLoaded,
             devices_fetched_at: None,
             selected_device: None,
+            soloist_status: crate::soloist::Status::Off,
+            soloist_key_saved: false,
+            soloist_key_draft: String::new(),
             last_account: session.last_account.clone(),
             queue: if session.last_track.is_some() && !session.last_queue_rows.is_empty() {
                 // The queue as it was at close, shown until something
@@ -1338,6 +1346,10 @@ impl App {
         if app.autostart_live {
             app.send_autostart(crate::backend::AutostartRequest::Read);
         }
+        app.backend.send(Command::ConfigureSoloist {
+            enabled: app.settings.soloist_enabled,
+            device_name: app.settings.device_name.clone(),
+        });
         app
     }
 
@@ -2471,6 +2483,38 @@ impl App {
                 continue;
             }
             match event {
+                Event::Soloist { status, key_saved } => {
+                    let was_running =
+                        matches!(self.soloist_status, crate::soloist::Status::Running);
+                    self.soloist_status = status;
+                    self.soloist_key_saved = key_saved;
+                    if key_saved {
+                        self.soloist_key_draft.clear();
+                    }
+                    if matches!(self.soloist_status, crate::soloist::Status::Running) {
+                        self.refresh_devices();
+                    } else {
+                        if was_running {
+                            // The Connect list still names a device that is
+                            // gone; read it again rather than wait a poll.
+                            self.refresh_devices();
+                        }
+                        if let Some(id) = self.soloist_device_id().map(str::to_owned)
+                            && self.selected_device.as_deref() == Some(id.as_str())
+                        {
+                            self.selected_device = None;
+                            self.pending_transfer_to = None;
+                        }
+                    }
+                }
+                Event::SoloistKeyStored(Ok(())) => {
+                    self.toast(gettext(self.locale, "Soloist API key saved"));
+                }
+                Event::SoloistKeyStored(Err(error)) => self.toast_error(error),
+                Event::SoloistPaired(Ok(())) => {
+                    self.toast(gettext(self.locale, "Spotify Soloist paired"));
+                }
+                Event::SoloistPaired(Err(error)) => self.toast_error(error),
                 Event::PlaylistCoverChecked {
                     id,
                     request,
@@ -6026,6 +6070,16 @@ impl App {
         self.backend.api(ApiRequest::Devices);
     }
 
+    /// The Connect device Spotify lists for Soloist, by the name it was
+    /// started with.
+    fn soloist_device_id(&self) -> Option<&str> {
+        let name = crate::soloist::connect_name(&self.settings.device_name);
+        self.devices
+            .iter()
+            .find(|device| device.name == name)
+            .and_then(|device| device.id.as_deref())
+    }
+
     fn refresh_queue(&mut self, force: bool) {
         if !self.is_connected() || !self.network_reachable {
             return;
@@ -6901,6 +6955,15 @@ impl App {
                     Ok(devices) => {
                         self.devices = devices;
                         self.control_devices_stale = true;
+                        if self.settings.soloist_enabled
+                            && matches!(self.soloist_status, crate::soloist::Status::Running)
+                            && let Some(id) = self.soloist_device_id().map(str::to_owned)
+                            && self.selected_device.is_none()
+                        {
+                            let play = self.local.is_active()
+                                || self.now_playing().is_some_and(|now| now.playing);
+                            self.transfer_remote(id, play);
+                        }
                         if let Some((name, since)) = self.pending_transfer_to.clone() {
                             // The receiver's own id keeps another device of the
                             // same name from taking over. A rescan can drop the
@@ -11968,6 +12031,10 @@ impl App {
             Action::SettingsChanged => {
                 self.settings_dirty = true;
                 ctx.set_theme(self.theme_preference());
+                self.backend.send(Command::ConfigureSoloist {
+                    enabled: self.settings.soloist_enabled,
+                    device_name: self.settings.device_name.clone(),
+                });
             }
             Action::SetStartWithComputer(start) => {
                 self.autostart_wanted = Some(start);
@@ -12006,6 +12073,15 @@ impl App {
                 if self.local_ready {
                     self.toast(gettext(self.locale, "Restarting local playback"));
                 }
+            }
+            Action::SaveSoloistKey(key) => {
+                self.backend.send(Command::StoreSoloistKey(key));
+            }
+            Action::PairSoloist => {
+                self.backend.send(Command::PairSoloist);
+            }
+            Action::RestartSoloist => {
+                self.backend.send(Command::RestartSoloist);
             }
             Action::ShowWindow => {
                 if self.window_hidden {

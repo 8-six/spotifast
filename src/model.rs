@@ -1374,6 +1374,12 @@ pub enum Action {
         playlist_order: Option<Vec<String>>,
     },
     RestartEngine,
+    /// Keep the Soloist API key in the platform credential store.
+    SaveSoloistKey(String),
+    /// Pair this computer through Soloist and the Spotify app.
+    PairSoloist,
+    /// Start Soloist again after it stopped.
+    RestartSoloist,
     /// Rebuild the HTTP client with the proxy in settings. Local playback
     /// restarts only when its HTTP proxy changed.
     ApplyProxy,

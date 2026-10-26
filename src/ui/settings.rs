@@ -305,6 +305,59 @@ fn frame_rate_dial(
     }
 }
 
+fn soloist_status_text(
+    locale: crate::i18n::Locale,
+    status: &crate::soloist::Status,
+) -> (
+    std::borrow::Cow<'static, str>,
+    std::borrow::Cow<'static, str>,
+) {
+    use crate::soloist::Status;
+    match status {
+        Status::Off => (
+            pgettext(locale, "soloist status", "Off"),
+            gettext(locale, "Turn Spotify Soloist on to play through it."),
+        ),
+        Status::Unsupported(reason) => (
+            pgettext(locale, "soloist status", "Unavailable"),
+            reason.clone().into(),
+        ),
+        Status::NeedsKey => (
+            pgettext(locale, "soloist status", "API key needed"),
+            gettext(
+                locale,
+                "Create a key in Spotify's Soloist dashboard and paste it above.",
+            ),
+        ),
+        Status::Downloading => (
+            pgettext(locale, "soloist status", "Downloading"),
+            gettext(
+                locale,
+                "Fetching Spotify's official build for this computer.",
+            ),
+        ),
+        Status::Starting => (
+            pgettext(locale, "soloist status", "Starting"),
+            gettext(locale, "Connecting Soloist to Spotify."),
+        ),
+        Status::Running => (
+            pgettext(locale, "soloist status", "Ready"),
+            gettext(locale, "This computer plays through Spotify Soloist."),
+        ),
+        Status::Pairing => (
+            pgettext(locale, "soloist status", "Pairing"),
+            gettext(
+                locale,
+                "Choose this computer in the Spotify app. Pairing finishes on its own.",
+            ),
+        ),
+        Status::Failed(reason) => (
+            pgettext(locale, "soloist status", "Stopped"),
+            reason.clone().into(),
+        ),
+    }
+}
+
 fn section(
     ui: &mut egui::Ui,
     palette: &Palette,
@@ -619,6 +672,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         ),
     };
     let playback = gettext(locale, "Playback on this computer");
+    let soloist = gettext(locale, "Spotify Soloist");
+    let soloist_key = gettext(locale, "Soloist API key");
+    let (soloist_state, soloist_detail) = soloist_status_text(locale, &app.soloist_status);
     let normalize_volume = gettext(locale, "Normalize volume");
     let autoplay = gettext(locale, "Autoplay");
     let gapless = gettext(locale, "Gapless playback");
@@ -730,6 +786,22 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         )
         .when(!cfg!(target_os = "macos")),
         RowText::new(start_with_computer.clone(), start_detail).when(start_available),
+        RowText::new(
+            soloist.clone(),
+            gettext(
+                locale,
+                "Play through Spotify's own Connect client. This computer stays the default device.",
+            ),
+        ),
+        RowText::new(
+            soloist_key.clone(),
+            gettext(
+                locale,
+                "From Spotify's Soloist dashboard. Stored in your system keychain.",
+            ),
+        )
+        .when(app.settings.soloist_enabled),
+        RowText::new(soloist_state, soloist_detail).when(app.settings.soloist_enabled),
     ];
     if section_matches(&needle, &playback, &playback_rows) {
         any_visible = true;
@@ -945,6 +1017,75 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     &playback_rows[17],
                     start_choice,
                 );
+            }
+            filtered_row(ui, &palette, &needle, &playback, &playback_rows[18], |ui| {
+                if widgets::switch(ui, &palette, &soloist, &mut app.settings.soloist_enabled)
+                    .changed()
+                {
+                    changed = true;
+                }
+            });
+            if app.settings.soloist_enabled {
+                filtered_row(ui, &palette, &needle, &playback, &playback_rows[19], |ui| {
+                    ui.horizontal(|ui| {
+                        Frame::new()
+                            .fill(palette.surface)
+                            .corner_radius(CornerRadius::same(6))
+                            .inner_margin(Margin::symmetric(10, 6))
+                            .show(ui, |ui| {
+                                widgets::text_edit(
+                                    ui,
+                                    locale,
+                                    egui::TextEdit::singleline(&mut app.soloist_key_draft)
+                                        .password(true)
+                                        .hint_text(if app.soloist_key_saved {
+                                            gettext(locale, "Saved in your keychain")
+                                        } else {
+                                            gettext(locale, "Paste your Soloist API key")
+                                        })
+                                        .font(theme::regular(14.0))
+                                        .frame(egui::Frame::NONE)
+                                        .desired_width(220.0),
+                                );
+                            });
+                        let save = gettext(locale, "Save key");
+                        if theme::soft_button(ui, &palette, None, &save, false).clicked()
+                            && !app.soloist_key_draft.trim().is_empty()
+                        {
+                            app.actions.push(Action::SaveSoloistKey(
+                                app.soloist_key_draft.trim().to_owned(),
+                            ));
+                        }
+                    });
+                });
+                filtered_row(ui, &palette, &needle, &playback, &playback_rows[20], |ui| {
+                    ui.horizontal(|ui| {
+                        let pair = gettext(locale, "Pair device");
+                        let busy = matches!(
+                            app.soloist_status,
+                            crate::soloist::Status::Pairing
+                                | crate::soloist::Status::Downloading
+                                | crate::soloist::Status::Starting
+                        );
+                        if theme::soft_button(ui, &palette, None, &pair, false).clicked() && !busy {
+                            app.actions.push(Action::PairSoloist);
+                        }
+                        if matches!(app.soloist_status, crate::soloist::Status::Failed(_)) {
+                            let restart = gettext(locale, "Start again");
+                            if theme::soft_button(
+                                ui,
+                                &palette,
+                                Some(Icon::Refresh),
+                                &restart,
+                                false,
+                            )
+                            .clicked()
+                            {
+                                app.actions.push(Action::RestartSoloist);
+                            }
+                        }
+                    });
+                });
             }
             #[cfg(target_os = "macos")]
             filtered_row(ui, &palette, &needle, &playback, &playback_rows[13], |ui| {

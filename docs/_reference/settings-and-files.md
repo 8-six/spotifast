@@ -16,6 +16,7 @@ Spotifast follows each platform's conventions. On Linux:
 | Winamp skins | `~/.config/spotifast/skins/` | Yes, you add them again |
 | MilkDrop presets | `~/.config/spotifast/milkdrop/` | Yes, you fetch them again |
 | Spotify grants (available since 0.8.0) | System credential store | Use Sign out in Settings |
+| Soloist API key | System credential store | Clear it and paste a new key in Settings |
 | Credential revocation markers (available since 0.8.0) | `~/.local/state/spotifast/credential-storage/` | Keep after a failed sign-out deletion |
 | Legacy shared Web API grant | `~/.local/state/spotifast/shared_web_api_token.json` | Removed after migration or sign-out |
 | Legacy personal Web API grant | `~/.local/state/spotifast/personal_web_api_token.json` | Removed after migration or sign-out |
@@ -25,6 +26,8 @@ Spotifast follows each platform's conventions. On Linux:
 | Last session | `~/.local/state/spotifast/session.json` | Yes |
 | Play history | `~/.local/state/spotifast/history.json` | Yes |
 | Audio cache | `~/.cache/spotifast/audio/` | Always |
+| Soloist download and audio cache | `~/.cache/spotifast/soloist/` | Always; the build is fetched again |
+| Soloist session and executable | `~/.local/state/spotifast/soloist/` | Yes; pair the device again |
 | Artwork cache | `~/.cache/spotifast/art/` | Always |
 | Lyrics cache | `~/.cache/spotifast/lyrics/` | Always |
 | Account-scoped playlist page cache | `~/.cache/spotifast/playlists/<account-id>/` | Always |
@@ -344,6 +347,7 @@ main fields are:
 | `gapless` | `true` | Gapless playback |
 | `audio_device` | `null` | The output local playback uses, by the id of a device **Audio output** in the device picker lists: PipeWire's or PulseAudio's node name or an ALSA PCM on Linux, the WASAPI endpoint id on Windows, the CoreAudio UID on macOS. `null` is the system default. A device that is not there plays through the default. A name saved by 0.13.3 or earlier opens the output that still has it and is replaced by its id once music plays there; any other name plays through the default and is kept until another choice. The `audio_backend` older versions saved is ignored and no longer written |
 | `audio_cache_mb` | `1024` | On-disk audio cache budget |
+| `soloist_enabled` | `false` | Play through Spotify's official Soloist Connect client and select it as the default device |
 | `local_files_folder` | `null` | Folder, with its subfolders, that a playlist's local files play from |
 | `theme` | `system` | Follow the system appearance by default; explicit `dark` and `light` choices remain available |
 | `language` | `system` | Since 0.10.0: the interface language. `system` follows the operating system's preferred languages and falls back to English; a tag such as `es`, `de-DE`, `pt-BR` or `zh-Hant` selects that language. An unknown tag follows the system |

@@ -69,6 +69,23 @@ the browser prompt once; Spotifast remembers this approval too.
 The computer then appears as a Spotify Connect device named **Spotifast**.
 You can rename it in Settings.
 
+### Spotify Soloist
+
+Spotifast can play through Spotify's own headless Connect client, Soloist,
+instead of its built-in player. In **Settings > Playback on this computer**,
+turn on **Spotify Soloist**, create an API key in the
+[Soloist dashboard](https://developer.spotify.com/dashboard), paste it into
+**Soloist API key**, and choose **Pair device**. Pairing asks you to pick
+the new **Spotifast (Soloist)** device in the Spotify app once. Spotifast
+then starts it with your computer and selects it for playback.
+
+The key is kept in your system credential store, never in `settings.json`
+or logs. Spotifast downloads Spotify's official build when Soloist first
+runs and replaces it before Spotify's 90-day build limit. Library access
+still comes from the streaming session, so folders and fast playlist reads
+stay. The equalizer, visualisers, crossfade, and local files only shape the
+built-in player, not Soloist's audio.
+
 ## Basics
 
 - **Closing the window does not stop the music.** Spotifast keeps playing

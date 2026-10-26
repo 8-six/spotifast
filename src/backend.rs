@@ -749,6 +749,17 @@ pub enum Command {
     AuthorizePlayback,
     /// Reload the engine config (audio settings changed).
     RestartEngine(EngineConfig),
+    /// Start or stop Spotify Soloist, the default playback device.
+    ConfigureSoloist {
+        enabled: bool,
+        device_name: String,
+    },
+    /// Keep the Soloist API key in the platform credential store.
+    StoreSoloistKey(String),
+    /// Pair this computer with the listener's Spotify app through Soloist.
+    PairSoloist,
+    /// Start Soloist again after it stopped.
+    RestartSoloist,
     /// Rebuild the HTTP client. Restart local playback only when its HTTP
     /// proxy changed; Off, System, and SOCKS5 share a direct engine connection.
     ApplyProxy {
@@ -1007,6 +1018,13 @@ pub enum Event {
     },
     Auth(AuthStatus),
     Playback(LocalPlayback),
+    /// Soloist's state, and whether an API key is stored.
+    Soloist {
+        status: crate::soloist::Status,
+        key_saved: bool,
+    },
+    SoloistKeyStored(Result<(), String>),
+    SoloistPaired(Result<(), String>),
     /// Receivers seen on the local network that Spotify has not listed.
     Receivers(Vec<crate::zeroconf::Receiver>),
     /// This computer's audio outputs, for the device picker.
@@ -1903,6 +1921,12 @@ struct Worker {
     /// The user asked to set up playback and the saved grant is being tried
     /// first. Only Spotify rejecting it opens the browser.
     authorize_if_rejected: bool,
+    soloist: crate::soloist::Runtime,
+    soloist_updates: mpsc::UnboundedReceiver<crate::soloist::Update>,
+    soloist_key: Option<String>,
+    soloist_key_loaded: bool,
+    soloist_enabled: bool,
+    soloist_device_name: String,
 }
 
 /// A failed Connect probe setup must still reconcile departed provisional rows.
@@ -1940,6 +1964,8 @@ impl Worker {
         commands: mpsc::UnboundedSender<Command>,
         waker: Waker,
     ) -> Self {
+        let (soloist_updates, soloist_updates_rx) = mpsc::unbounded_channel();
+        let soloist = crate::soloist::Runtime::new(dirs.clone(), soloist_updates);
         Self {
             #[cfg(not(test))]
             credentials: CredentialStore::new(dirs.clone()),
@@ -1998,12 +2024,112 @@ impl Worker {
             engine_retry_generation: 0,
             engine_retry_quiet: false,
             authorize_if_rejected: false,
+            soloist,
+            soloist_updates: soloist_updates_rx,
+            soloist_key: None,
+            soloist_key_loaded: false,
+            soloist_enabled: false,
+            soloist_device_name: String::new(),
         }
     }
 
     fn emit(&self, event: Event) {
         let _ = self.events.send(event);
         self.waker.wake();
+    }
+
+    fn on_soloist_update(&mut self, update: crate::soloist::Update) {
+        match update {
+            crate::soloist::Update::Status(_) => self.emit_soloist_status(),
+            crate::soloist::Update::Paired(result) => {
+                self.emit(Event::SoloistPaired(result.clone()));
+                if result.is_ok() {
+                    match self.http.client() {
+                        Ok(client) => self.soloist.restart(client),
+                        Err(error) => self.soloist.fail(error),
+                    }
+                }
+                self.emit_soloist_status();
+            }
+        }
+    }
+
+    fn emit_soloist_status(&self) {
+        self.emit(Event::Soloist {
+            status: self.soloist.status().clone(),
+            key_saved: self.soloist_key.is_some(),
+        });
+    }
+
+    async fn configure_soloist(&mut self, enabled: bool, device_name: String) {
+        self.soloist_enabled = enabled;
+        self.soloist_device_name = device_name.clone();
+        if !self.soloist_key_loaded {
+            let loaded = self.credentials.lease(CredentialSlot::Soloist).load().await;
+            self.soloist_key_loaded = true;
+            match loaded {
+                Ok(loaded) => {
+                    if let Some(error) = loaded.warning {
+                        self.emit(Event::Error(error.to_string()));
+                    }
+                    self.soloist_key = match loaded.grant {
+                        Some(StoredGrant::Soloist(key)) => Some(key.key),
+                        _ => None,
+                    };
+                }
+                Err(error) => self.emit(Event::Error(error.to_string())),
+            }
+        }
+        match self.http.client() {
+            Ok(client) => {
+                self.soloist
+                    .configure(enabled, device_name, self.soloist_key.clone(), client)
+            }
+            Err(error) => self.soloist.fail(error),
+        }
+        self.emit_soloist_status();
+    }
+
+    async fn store_soloist_key(&mut self, key: String) {
+        let key = key.trim().to_owned();
+        if key.is_empty() {
+            self.emit(Event::SoloistKeyStored(Err(
+                "Enter the API key from Spotify's Soloist dashboard.".into(),
+            )));
+            return;
+        }
+        let saved = self
+            .credentials
+            .lease(CredentialSlot::Soloist)
+            .save(StoredGrant::Soloist(crate::credentials::SoloistKey::new(
+                key.clone(),
+            )))
+            .await;
+        match saved {
+            Ok(()) => {
+                self.soloist_key = Some(key);
+                self.soloist_key_loaded = true;
+                self.emit(Event::SoloistKeyStored(Ok(())));
+                let enabled = self.soloist_enabled;
+                let device_name = self.soloist_device_name.clone();
+                self.configure_soloist(enabled, device_name).await;
+            }
+            Err(error) => self.emit(Event::SoloistKeyStored(Err(error.to_string()))),
+        }
+    }
+
+    fn pair_soloist(&mut self) {
+        if self.soloist_key.is_none() {
+            self.emit(Event::SoloistPaired(Err(
+                "Add your Soloist API key first.".into()
+            )));
+            return;
+        }
+        match self.http.client() {
+            Ok(client) => self.soloist.pair(client),
+            Err(error) => self.soloist.fail(error),
+        }
+        self.emit_soloist_status();
     }
 
     /// Build before replacing either transport configuration. A rejected
@@ -2147,7 +2273,17 @@ impl Worker {
             self.events.clone(),
             self.waker.clone(),
         ));
-        while let Some(command) = commands.recv().await {
+        'commands: loop {
+            let command = tokio::select! {
+                command = commands.recv() => match command {
+                    Some(command) => command,
+                    None => break,
+                },
+                Some(update) = self.soloist_updates.recv() => {
+                    self.on_soloist_update(update);
+                    continue 'commands;
+                }
+            };
             if self.restoring_proxy
                 && !matches!(
                     &command,
@@ -2294,7 +2430,10 @@ impl Worker {
                         waker.wake();
                     });
                 }
-                Command::Shutdown => break,
+                Command::Shutdown => {
+                    self.soloist.stop();
+                    break;
+                }
                 Command::SignIn {
                     request,
                     config,
@@ -2339,6 +2478,22 @@ impl Worker {
                     self.engine_config = config;
                     self.replace_engine();
                 }
+                Command::ConfigureSoloist {
+                    enabled,
+                    device_name,
+                } => self.configure_soloist(enabled, device_name).await,
+                Command::StoreSoloistKey(key) => self.store_soloist_key(key).await,
+                Command::PairSoloist => self.pair_soloist(),
+                Command::RestartSoloist => match self.http.client() {
+                    Ok(client) => {
+                        self.soloist.restart(client);
+                        self.emit_soloist_status();
+                    }
+                    Err(error) => {
+                        self.soloist.fail(error);
+                        self.emit_soloist_status();
+                    }
+                },
                 Command::ApplyProxy { request, config } => self.change_proxy(request, config, None),
                 Command::Player(command) => {
                     if matches!(&command, PlayerCommand::Load(_)) {
@@ -2938,6 +3093,9 @@ impl Worker {
         if slot == CredentialSlot::Proxy {
             return;
         }
+        if slot == CredentialSlot::Soloist {
+            return;
+        }
         if !lease.current() {
             return;
         }
@@ -2988,7 +3146,7 @@ impl Worker {
                     }
                 }
             }
-            None | Some(StoredGrant::Proxy(_)) => {}
+            None | Some(StoredGrant::Proxy(_)) | Some(StoredGrant::Soloist(_)) => {}
         }
         if slot == CredentialSlot::Playback {
             self.start_prerelease();
