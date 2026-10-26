@@ -43,24 +43,45 @@ pub(crate) fn end_tint_session(ctx: &egui::Context) {
     ctx.data_mut(|data| data.remove::<u64>(egui::Id::new(TINT_SESSION_ID)));
 }
 
+/// The gap between the bar's card and the page above it, and the bar's card
+/// height including the ground the floating card leaves around it.
+const BAR_TOP_GAP: f32 = theme::PANEL_GAP / 2.0;
+const PANEL_HEIGHT: f32 = theme::PLAYER_BAR_HEIGHT + BAR_TOP_GAP + theme::PANEL_GAP;
+
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let fill = eased_fill(ui.ctx(), palette.panel, app.now_playing_tint());
     egui::Panel::bottom("player-bar")
-        .exact_size(theme::PLAYER_BAR_HEIGHT)
+        .exact_size(PANEL_HEIGHT)
         .resizable(false)
         .show_separator_line(false)
         .frame(
             Frame::new()
                 .fill(fill)
+                .corner_radius(egui::CornerRadius::same(theme::PANEL_RADIUS as u8))
+                .outer_margin(Margin {
+                    left: theme::PANEL_GAP as i8,
+                    right: theme::PANEL_GAP as i8,
+                    top: BAR_TOP_GAP as i8,
+                    bottom: theme::PANEL_GAP as i8,
+                })
                 .inner_margin(Margin::symmetric(16, 0)),
         )
         .show(ui, |ui| {
             let rect = ui.max_rect();
             let now = app.now_playing();
-            // The whole bar, margins included, behind everything else.
+            // The whole bar card, margins included, behind everything else.
             let behind = rect.expand2(vec2(16.0, 0.0));
             if visualizer(app, ui, behind, now.as_ref()) {
+                // The visualiser runs to the card's edges; keep it inside
+                // the rounded outline so the ground still shows at the
+                // corners.
+                super::widgets::mask_rounded_corners(
+                    ui,
+                    behind,
+                    theme::PANEL_RADIUS,
+                    super::theme::ground(&palette),
+                );
                 theme::visualiser_frame(ui.ctx(), app.visualiser_fps());
             }
             // Its empty space is the visualizer's control, as Winamp's

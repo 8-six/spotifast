@@ -36,6 +36,13 @@ pub fn side_panel(app: &mut App, ui: &mut egui::Ui) {
         .frame(
             Frame::new()
                 .fill(palette.panel)
+                .corner_radius(egui::CornerRadius::same(theme::PANEL_RADIUS as u8))
+                .outer_margin(Margin {
+                    left: (theme::PANEL_GAP / 2.0) as i8,
+                    right: theme::PANEL_GAP as i8,
+                    top: theme::PANEL_GAP as i8,
+                    bottom: (theme::PANEL_GAP / 2.0) as i8,
+                })
                 .inner_margin(Margin::symmetric(12, 12)),
         );
     let response = panel.show(ui, |ui| {

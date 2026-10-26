@@ -53,6 +53,10 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         fastframe_titlebar::resize(ui);
         return;
     }
+    // The panels and the player bar are cards on this ground; the gaps
+    // between them show it.
+    ui.painter()
+        .rect_filled(ui.max_rect(), 0.0, theme::ground(&app.palette));
     if titlebar_spans_window(cfg!(target_os = "macos"), fastframe_titlebar::enabled()) {
         fastframe_titlebar::drag(
             ui,
@@ -96,13 +100,24 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
 /// The main window's narrowest width with these panels open: their least
 /// widths and the page's.
 fn main_min_width(page: f32, sidebar: bool, right_panel: bool) -> f32 {
+    // The page card's outer margins take room from its content, so ask for
+    // them on top of the top bar's least width.
+    let page_margin = (if sidebar {
+        theme::PANEL_GAP / 2.0
+    } else {
+        theme::PANEL_GAP
+    }) + if right_panel {
+        theme::PANEL_GAP / 2.0
+    } else {
+        theme::PANEL_GAP
+    };
     let sidebar = if sidebar { SIDEBAR_MIN_WIDTH } else { 0.0 };
     let right = if right_panel {
         theme::SIDE_PANEL_MIN_WIDTH
     } else {
         0.0
     };
-    (sidebar + right + page).max(crate::window::MAIN_MIN_SIZE[0])
+    (sidebar + right + page + page_margin).max(crate::window::MAIN_MIN_SIZE[0])
 }
 
 /// The sidebar's narrowest width.
@@ -278,8 +293,24 @@ fn page_tint(app: &mut App) -> Option<Color32> {
 fn central(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let tint = page_tint(app);
+    let sidebar = app.settings.sidebar_visible;
+    let right_panel = app.show_queue_panel || app.show_lyrics_panel || app.show_friends_panel;
+    let gap = theme::PANEL_GAP as i8;
+    // Two cards share the gap between them, so neither edge shows more than
+    // half of it. The outside edges keep the whole gap.
+    let half = gap / 2;
     egui::CentralPanel::default()
-        .frame(Frame::new().fill(palette.window))
+        .frame(
+            Frame::new()
+                .fill(palette.panel)
+                .corner_radius(CornerRadius::same(theme::PANEL_RADIUS as u8))
+                .outer_margin(Margin {
+                    left: if sidebar { half } else { gap },
+                    right: if right_panel { half } else { gap },
+                    top: gap,
+                    bottom: half,
+                }),
+        )
         .show(ui, |ui| {
             let rect = ui.max_rect();
             let page = app.page().clone();
@@ -296,7 +327,21 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
                 .data(|data| data.get_temp::<f32>(scrolled_id))
                 .unwrap_or(0.0);
             if let Some((top, bottom)) = header_wash(&palette, overview, tint) {
-                widgets::paint_vertical_gradient(ui, header_rect(rect, scrolled), top, bottom);
+                widgets::paint_vertical_gradient_clipped(
+                    ui,
+                    rect,
+                    header_rect(rect, scrolled),
+                    top,
+                    bottom,
+                );
+                // The card's rounded corners leave the ground showing; the
+                // wash must not paint over them.
+                widgets::mask_rounded_corners(
+                    ui,
+                    rect,
+                    theme::PANEL_RADIUS,
+                    theme::ground(&palette),
+                );
             }
             ui.spacing_mut().item_spacing = vec2(8.0, 6.0);
             // egui fades a scrolled page's edge into the panel's plain
@@ -503,9 +548,9 @@ fn banner(
 }
 
 /// The gradient behind a page's header, top to bottom: the art's colour
-/// blended into the window, stronger on a cover's own page than on an
+/// blended into the page card, stronger on a cover's own page than on an
 /// overview, or else the palette's `tint` fading out, whose alpha is its
-/// strength. `None` leaves the plain window.
+/// strength. `None` leaves the plain card.
 fn header_wash(
     palette: &theme::Palette,
     overview: bool,
@@ -513,7 +558,7 @@ fn header_wash(
 ) -> Option<(Color32, Color32)> {
     if let Some(art) = art {
         let strength = if overview { 0.45 } else { 0.85 };
-        return Some((blend(palette.window, art, strength), palette.window));
+        return Some((blend(palette.panel, art, strength), palette.panel));
     }
     (palette.tint.a() > 0).then_some((palette.tint, Color32::TRANSPARENT))
 }
@@ -788,8 +833,8 @@ mod tests {
         let art = Color32::from_rgb(0x50, 0x38, 0xc8);
         let (page, _) = header_wash(&palette, false, Some(art)).unwrap();
         let (overview, _) = header_wash(&palette, true, Some(art)).unwrap();
-        assert_eq!(page, blend(palette.window, art, 0.85));
-        assert_eq!(overview, blend(palette.window, art, 0.45));
+        assert_eq!(page, blend(palette.panel, art, 0.85));
+        assert_eq!(overview, blend(palette.panel, art, 0.45));
 
         palette.tint = Color32::from_black_alpha(24);
         assert_eq!(

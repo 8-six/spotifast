@@ -160,14 +160,14 @@ pub(super) fn hero(app: &mut App, ui: &mut egui::Ui, hero: Hero<'_>) {
             ui.spacing_mut().item_spacing.y = 6.0;
             ui.add_space(cover_size * 0.08);
             theme::text(ui, hero.kind.as_ref(), theme::medium(12.5), palette.text);
-            let mut size = if cover_size > 200.0 { 56.0 } else { 40.0 };
+            let mut size = if cover_size > 200.0 { 64.0 } else { 46.0 };
             loop {
                 let galley = ui.painter().layout_no_wrap(
                     hero.title.to_string(),
                     theme::bold(size),
                     palette.text,
                 );
-                if galley.size().x <= width || size <= 22.0 {
+                if galley.size().x <= width || size <= 24.0 {
                     break;
                 }
                 size -= 6.0;
@@ -1587,7 +1587,7 @@ pub fn top_songs(app: &mut App, ui: &mut egui::Ui) {
     theme::text(
         ui,
         gettext(app.locale, "Your top songs"),
-        theme::bold(30.0),
+        theme::bold(34.0),
         palette.text,
     );
     ui.add_space(4.0);

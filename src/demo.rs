@@ -5664,8 +5664,8 @@ mod tests {
             output.textures_delta.clear();
         };
         draw(&mut app, vec![]);
-        // The margin at the bar's left edge, beside the cover.
-        let empty = egui::pos2(6.0, 796.0);
+        // The margin inside the bar's card, beside the cover.
+        let empty = egui::pos2(12.0, 748.0);
         draw(&mut app, pointer_click(empty, egui::PointerButton::Primary));
         assert!(
             app.actions
@@ -5739,7 +5739,7 @@ mod tests {
         let tip = "Click to change the visualizer";
 
         // #given the tooltip shown over the empty margin beside the cover
-        let empty = egui::pos2(6.0, 796.0);
+        let empty = egui::pos2(12.0, 748.0);
         for _ in 0..3 {
             draw(&mut app, empty);
         }
@@ -9363,7 +9363,7 @@ mod tests {
             &mut app,
             vec![egui::Event::PointerMoved(egui::pos2(
                 start.x,
-                800.0 - crate::theme::PLAYER_BAR_HEIGHT - 14.0,
+                800.0 - crate::theme::PLAYER_BAR_HEIGHT - 8.0 - 24.0,
             ))],
         );
         for _ in 0..400 {
@@ -10548,7 +10548,7 @@ mod tests {
                 &mut app,
                 vec![egui::Event::PointerMoved(egui::pos2(
                     112.0,
-                    800.0 - crate::theme::PLAYER_BAR_HEIGHT - 14.0,
+                    800.0 - crate::theme::PLAYER_BAR_HEIGHT - 8.0 - 24.0,
                 ))],
             );
             for _ in 0..400 {

@@ -13921,7 +13921,8 @@ mod tests {
         assert!(sidebar >= 210.0 && queue >= crate::theme::SIDE_PANEL_MIN_WIDTH);
         assert_eq!(app.settings.sidebar_width, 400.0);
         assert_eq!(app.settings.queue_width, 500.0);
-        let min = (210.0 + crate::theme::SIDE_PANEL_MIN_WIDTH + least).round();
+        let min =
+            (210.0 + crate::theme::SIDE_PANEL_MIN_WIDTH + least + crate::theme::PANEL_GAP).round();
         assert!(
             commands.iter().any(|command| matches!(
                 command,

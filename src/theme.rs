@@ -233,6 +233,28 @@ fn status_detail(status: Option<fastframe_theme::Status>, locale: Locale) -> Cow
 
 pub const RADIUS: u8 = 8;
 pub const RADIUS_SMALL: u8 = 4;
+/// The corner radius of a floating panel card: the sidebar, the page, the
+/// side panels, and the player bar.
+pub const PANEL_RADIUS: f32 = 12.0;
+/// The space between two floating panel cards, and between a card and the
+/// window's edge. Cards beside each other each take half of it.
+pub const PANEL_GAP: f32 = 8.0;
+
+/// The ground behind the floating panel cards. A white card on a nearly
+/// white window would otherwise lose its edge, so light themes darken the
+/// ground a little without changing the palette's own window colour, which
+/// buttons and masks also use on their own surfaces.
+pub fn ground(palette: &Palette) -> Color32 {
+    if palette.dark {
+        return palette.window;
+    }
+    let shade = |channel: u8| (f32::from(channel) * 0.94).round() as u8;
+    Color32::from_rgb(
+        shade(palette.window.r()),
+        shade(palette.window.g()),
+        shade(palette.window.b()),
+    )
+}
 pub const ROW_HEIGHT: f32 = 56.0;
 pub const COMPACT_ROW_HEIGHT: f32 = 48.0;
 /// The compact track list: one line, no cover.
@@ -1017,8 +1039,11 @@ pub fn link(
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
+/// The size of a shelf or section heading, and its linked variant.
+pub const SECTION_TITLE_SIZE: f32 = 24.0;
+
 pub fn section_title(ui: &mut egui::Ui, palette: &Palette, label: &str) -> Response {
-    text(ui, label, bold(17.0), palette.text)
+    text(ui, label, bold(SECTION_TITLE_SIZE), palette.text)
 }
 
 pub fn subtle(ui: &mut egui::Ui, palette: &Palette, label: &str) -> Response {

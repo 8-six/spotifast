@@ -41,7 +41,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     }
     ui.add_space(6.0);
     let greeting = crate::util::greeting(app.locale);
-    theme::text(ui, greeting.as_ref(), theme::bold(30.0), palette.text);
+    theme::text(ui, greeting.as_ref(), theme::bold(36.0), palette.text);
     ui.add_space(12.0);
     quick_access(app, ui);
     ui.add_space(16.0);
@@ -831,7 +831,14 @@ fn track_list(
         Loadable::Loaded(tracks) => tracks,
         Loadable::Loading | Loadable::NotLoaded => {
             if let Some(page) = title_page {
-                if theme::link(ui, title, theme::bold(17.0), palette.text).clicked() {
+                if theme::link(
+                    ui,
+                    title,
+                    theme::bold(theme::SECTION_TITLE_SIZE),
+                    palette.text,
+                )
+                .clicked()
+                {
                     app.actions.push(Action::Open(page));
                 }
             } else {
@@ -852,7 +859,14 @@ fn track_list(
         return;
     }
     if let Some(page) = title_page {
-        if theme::link(ui, title, theme::bold(17.0), palette.text).clicked() {
+        if theme::link(
+            ui,
+            title,
+            theme::bold(theme::SECTION_TITLE_SIZE),
+            palette.text,
+        )
+        .clicked()
+        {
             app.actions.push(Action::Open(page));
         }
     } else {
@@ -906,7 +920,14 @@ fn top_tracks(app: &mut App, ui: &mut egui::Ui) {
     let more = gettext(app.locale, "Show more top songs");
     let tracks = app.home.top_tracks.clone();
 
-    if theme::link(ui, &*title, theme::bold(17.0), palette.text).clicked() {
+    if theme::link(
+        ui,
+        &*title,
+        theme::bold(theme::SECTION_TITLE_SIZE),
+        palette.text,
+    )
+    .clicked()
+    {
         app.actions.push(Action::Open(Page::TopSongs));
     }
     ui.add_space(4.0);

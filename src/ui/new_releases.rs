@@ -23,7 +23,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui) {
     theme::text(
         ui,
         gettext(locale, "New releases"),
-        theme::bold(30.0),
+        theme::bold(34.0),
         palette.text,
     );
     ui.add_space(4.0);

@@ -327,6 +327,17 @@ pub fn paint_shadow(ui: &Ui, palette: &Palette, rect: Rect, radius: f32) {
 
 /// Fills `rect` with a vertical gradient from `top` to `bottom`.
 pub fn paint_vertical_gradient(ui: &Ui, rect: Rect, top: Color32, bottom: Color32) {
+    paint_vertical_gradient_clipped(ui, Rect::EVERYTHING, rect, top, bottom);
+}
+
+/// Paints a vertical gradient with everything outside `clip` left alone.
+pub fn paint_vertical_gradient_clipped(
+    ui: &Ui,
+    clip: Rect,
+    rect: Rect,
+    top: Color32,
+    bottom: Color32,
+) {
     let mut mesh = egui::Mesh::default();
     mesh.colored_vertex(rect.left_top(), top);
     mesh.colored_vertex(rect.right_top(), top);
@@ -334,7 +345,51 @@ pub fn paint_vertical_gradient(ui: &Ui, rect: Rect, top: Color32, bottom: Color3
     mesh.colored_vertex(rect.left_bottom(), bottom);
     mesh.add_triangle(0, 1, 2);
     mesh.add_triangle(0, 2, 3);
-    ui.painter().add(egui::Shape::mesh(mesh));
+    ui.painter()
+        .with_clip_rect(clip)
+        .add(egui::Shape::mesh(mesh));
+}
+
+/// Covers the four corner squares of `rect` outside its rounded outline with
+/// `colour`, for content painted square to a card's edge, such as a gradient
+/// or the player bar's visualiser.
+pub fn mask_rounded_corners(ui: &Ui, rect: Rect, radius: f32, colour: Color32) {
+    let mesh = rounded_corner_mask(rect, radius, colour);
+    if !mesh.is_empty() {
+        ui.painter().add(egui::Shape::mesh(mesh));
+    }
+}
+
+fn rounded_corner_mask(rect: Rect, radius: f32, colour: Color32) -> egui::Mesh {
+    let radius = radius.min(rect.width().min(rect.height()) / 2.0);
+    let mut mesh = egui::Mesh::default();
+    if radius <= 0.0 {
+        return mesh;
+    }
+    /// Enough steps that the arc reads as round at a card's corner.
+    const STEPS: usize = 6;
+    for (sx, sy) in [(-1.0_f32, -1.0_f32), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+        let corner = pos2(
+            if sx < 0.0 { rect.left() } else { rect.right() },
+            if sy < 0.0 { rect.top() } else { rect.bottom() },
+        );
+        let centre = pos2(corner.x - sx * radius, corner.y - sy * radius);
+        let first = mesh.vertices.len() as u32;
+        mesh.colored_vertex(corner, colour);
+        for step in 0..=STEPS {
+            let angle = std::f32::consts::FRAC_PI_2 * step as f32 / STEPS as f32;
+            let point = pos2(
+                centre.x + sx * radius * angle.cos(),
+                centre.y + sy * radius * angle.sin(),
+            );
+            mesh.colored_vertex(point, colour);
+        }
+        for step in 0..STEPS {
+            let step = step as u32;
+            mesh.add_triangle(first, first + 1 + step, first + 2 + step);
+        }
+    }
+    mesh
 }
 
 /// Lays out only the rows that intersect the visible area of the enclosing
@@ -2767,7 +2822,13 @@ pub fn linked_shelf(
     add_contents: impl FnOnce(&mut Ui),
 ) -> bool {
     ui.add_space(8.0);
-    let clicked = theme::link(ui, title, theme::bold(17.0), palette.text).clicked();
+    let clicked = theme::link(
+        ui,
+        title,
+        theme::bold(theme::SECTION_TITLE_SIZE),
+        palette.text,
+    )
+    .clicked();
     shelf_cards(ui, id, add_contents);
     clicked
 }
@@ -3607,6 +3668,47 @@ mod tests {
     use crate::model::{Action, Page};
     use crate::paths::AppDirs;
     use crate::settings::Settings;
+
+    /// The mask that keeps a square gradient or visualiser inside a card only
+    /// touches the four corner squares, never the body the card shows.
+    #[test]
+    fn the_corner_mask_leaves_the_card_body_alone() {
+        let rect = Rect::from_min_size(egui::Pos2::ZERO, vec2(120.0, 80.0));
+        let radius = theme::PANEL_RADIUS;
+        let mesh = rounded_corner_mask(rect, radius, Color32::RED);
+
+        assert_eq!(mesh.vertices.len(), 4 * 8, "one fan per corner");
+        assert_eq!(mesh.indices.len(), 4 * 6 * 3, "six triangles per fan");
+        // The arcs end a hair past their tangent point in f32, so compare
+        // against a tolerance far below a pixel rather than exactly.
+        let tolerance = 0.01;
+        for vertex in &mesh.vertices {
+            let near_x = vertex.pos.x <= rect.left() + radius + tolerance
+                || vertex.pos.x >= rect.right() - radius - tolerance;
+            let near_y = vertex.pos.y <= rect.top() + radius + tolerance
+                || vertex.pos.y >= rect.bottom() - radius - tolerance;
+            assert!(
+                near_x && near_y,
+                "outside a corner square: {:?}",
+                vertex.pos
+            );
+            assert!(
+                rect.contains(vertex.pos),
+                "outside the card: {:?}",
+                vertex.pos
+            );
+        }
+        // A card too small for the radius still yields a valid, empty mask
+        // rather than drawing over itself.
+        assert!(
+            rounded_corner_mask(
+                Rect::from_min_size(egui::Pos2::ZERO, Vec2::ZERO),
+                radius,
+                Color32::RED
+            )
+            .is_empty()
+        );
+    }
 
     #[test]
     fn editing_a_proxy_endpoint_clears_its_password_but_password_entry_is_preserved() {

@@ -565,12 +565,23 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         .default_size(app.settings.sidebar_width)
         .size_range(fit.range.clone())
         .show_separator_line(false)
-        .frame(Frame::new().fill(palette.panel).inner_margin(Margin {
-            left: 12,
-            right: 8,
-            top,
-            bottom: if expanded_art { 0 } else { 8 },
-        }));
+        .frame(
+            Frame::new()
+                .fill(palette.panel)
+                .corner_radius(egui::CornerRadius::same(theme::PANEL_RADIUS as u8))
+                .outer_margin(egui::Margin {
+                    left: theme::PANEL_GAP as i8,
+                    right: (theme::PANEL_GAP / 2.0) as i8,
+                    top: theme::PANEL_GAP as i8,
+                    bottom: (theme::PANEL_GAP / 2.0) as i8,
+                })
+                .inner_margin(Margin {
+                    left: 4,
+                    right: 4,
+                    top: top - theme::PANEL_GAP as i8,
+                    bottom: if expanded_art { 0 } else { 4 },
+                }),
+        );
     let response = panel.show(ui, |ui| {
         let art_rect = expanded_art.then(|| expanded_art_rect(ui));
         if let Some(rect) = art_rect.filter(|_| !floating_art) {
