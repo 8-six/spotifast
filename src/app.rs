@@ -798,6 +798,8 @@ pub struct App {
     /// The window's pixels per point when it last drew, so artwork chosen
     /// away from the drawing code fits the display it lands on.
     pub pixels_per_point: f32,
+    /// The account whose caches may preload before `/me` answers.
+    last_account: Option<String>,
 }
 
 /// How many plays the Home shelf asks for: it shows sixteen cards.
@@ -1127,6 +1129,7 @@ impl App {
             output_devices: Loadable::NotLoaded,
             devices_fetched_at: None,
             selected_device: None,
+            last_account: session.last_account.clone(),
             queue: if session.last_track.is_some() && !session.last_queue_rows.is_empty() {
                 // The queue as it was at close, shown until something
                 // plays; then the live queue takes over.
@@ -2755,6 +2758,9 @@ impl App {
                 // `Me` follows and reads the cache, even for the same
                 // account signing in again.
                 self.account_caches_due = true;
+                if let Some(account) = self.last_account.clone() {
+                    self.preload_account_caches(&account);
+                }
                 self.load_playlists();
                 self.ensure_loaded(self.page().clone());
                 self.poll_remote(true);
@@ -2783,6 +2789,7 @@ impl App {
                 self.device_history = Default::default();
                 self.editable_by_grant.clear();
                 self.account_caches_due = false;
+                self.last_account = None;
                 self.session_dirty = true;
                 self.reset_data();
             }
@@ -4913,6 +4920,27 @@ impl App {
         self.account_caches_generation = self.load_generation;
         self.backend.send(Command::LoadAccountCaches {
             generation: self.account_caches_generation,
+            account: None,
+        });
+    }
+
+    /// Reads the last account's library, Home and Liked Songs before `/me`
+    /// names the signed-in account, so the interface has rows at once. `Me`
+    /// keeps them only when it names the same account, and clears them when
+    /// it does not.
+    fn preload_account_caches(&mut self, account: &str) {
+        self.load_generation = self.load_generation.wrapping_add(1);
+        self.account_caches_generation = self.load_generation;
+        self.backend.send(Command::LoadAccountCaches {
+            generation: self.account_caches_generation,
+            account: Some(account.to_owned()),
+        });
+        self.liked_songs.generation = self.load_generation;
+        self.liked_songs.cache_loading = true;
+        self.library.liked.loading = true;
+        self.backend.send(Command::LoadLikedSongsCache {
+            generation: self.load_generation,
+            account: Some(account.to_owned()),
         });
     }
 
@@ -4925,9 +4953,13 @@ impl App {
         playlists: Option<Vec<Playlist>>,
         home: Option<HomeSnapshot>,
     ) {
-        if self.user_id() != Some(account) || generation != self.account_caches_generation {
+        if self.user_id() != Some(account)
+            && !(self.user_id().is_none() && self.last_account.as_deref() == Some(account))
+            || generation != self.account_caches_generation
+        {
             return;
         }
+        let restored = playlists.is_some() || home.is_some();
         if let Some(cached) = home {
             self.restore_home(cached);
         }
@@ -4947,6 +4979,9 @@ impl App {
             }
             self.apply_playlist_edits();
             self.note_listed_playlists();
+        }
+        if restored {
+            self.account_caches_due = false;
         }
     }
 
@@ -6794,8 +6829,22 @@ impl App {
                         self.dialog = Some(Dialog::PremiumNeeded);
                     }
                     let due = std::mem::take(&mut self.account_caches_due);
-                    let changed = self.user_id() != Some(user.id.as_str());
-                    if changed {
+                    let known = self.user_id().map(str::to_owned);
+                    let same = known.as_deref() == Some(user.id.as_str());
+                    let preloaded =
+                        known.is_none() && self.last_account.as_deref() == Some(user.id.as_str());
+                    let stale = self
+                        .last_account
+                        .as_deref()
+                        .is_some_and(|account| account != user.id);
+                    if stale {
+                        // Another account signed in without a fresh
+                        // connection event, or its caches preloaded: nothing
+                        // of the old one may stay under the new one.
+                        self.reset_data();
+                        self.load_playlists();
+                    }
+                    if !same {
                         self.rootlist = self
                             .rootlist_cache
                             .as_ref()
@@ -6804,7 +6853,11 @@ impl App {
                             .unwrap_or_default();
                         self.editable_by_grant.clear();
                     }
-                    if changed || due {
+                    if self.last_account.as_deref() != Some(user.id.as_str()) {
+                        self.last_account = Some(user.id.clone());
+                        self.session_dirty = true;
+                    }
+                    if due || (!same && !preloaded) {
                         self.request_account_caches();
                     }
                     self.user = Some(user);
@@ -13113,6 +13166,7 @@ impl App {
         }
         if !self.offline {
             let session = SessionState {
+                last_account: self.last_account.clone(),
                 device_history: self.device_history.clone(),
                 last_page: Some(self.page().encode()),
                 recent_contexts: self.recent_contexts.clone(),
@@ -13192,6 +13246,7 @@ impl App {
             self.library.liked.loading = true;
             self.backend.send(Command::LoadLikedSongsCache {
                 generation: self.load_generation,
+                account: None,
             });
         } else if !self.liked_songs.fresh(jiff::Timestamp::now().as_second())
             && self.library.liked.error.is_none()
@@ -13208,9 +13263,17 @@ impl App {
         cache: Option<crate::liked::Cache>,
     ) {
         if self.user_id() != Some(account)
+            && !(self.user_id().is_none() && self.last_account.as_deref() == Some(account))
             || self.liked_songs.generation != generation
             || self.liked_songs.cache_checked
         {
+            return;
+        }
+        if cache.is_none() && self.user_id().is_none() {
+            // No preloaded cache: wait for `/me` before asking Spotify, as
+            // the first sign-in does.
+            self.liked_songs.cache_loading = false;
+            self.library.liked.loading = false;
             return;
         }
         self.liked_songs.cache_loading = false;
@@ -16570,6 +16633,56 @@ mod tests {
         assert!(app.library.playlists.get().is_none());
         assert!(app.home.recently_played.get().is_none());
         assert!(app.home.made_for_you.get().is_none());
+    }
+
+    #[test]
+    fn the_last_accounts_library_shows_before_me_answers() {
+        let mut app = listener_app();
+        app.backend.set_offline(true);
+        app.last_account = Some("alice".into());
+        app.handle_auth(AuthStatus::Connected {
+            username: "alice".into(),
+        });
+        let generation = app.account_caches_generation;
+        assert!(app.account_caches_due);
+        app.receive_account_caches("alice", generation, cached_playlists(&["a"]), None);
+        assert_eq!(
+            listed_playlists(&app),
+            playlist_ids(&["a"]),
+            "the cached list fills the library before /me"
+        );
+        assert!(
+            !app.account_caches_due,
+            "the cache that answered is not read again after /me"
+        );
+    }
+
+    #[test]
+    fn a_preloaded_library_is_dropped_when_me_names_another_account() {
+        let mut app = listener_app();
+        app.backend.set_offline(true);
+        // A cold start knows the last account's name but not who is signed in.
+        app.user = None;
+        app.last_account = Some("alice".into());
+        app.handle_auth(AuthStatus::Connected {
+            username: "alice".into(),
+        });
+        let generation = app.account_caches_generation;
+        app.receive_account_caches("alice", generation, cached_playlists(&["a"]), None);
+        assert_eq!(
+            listed_playlists(&app),
+            playlist_ids(&["a"]),
+            "the preloaded list is shown before /me answers"
+        );
+        app.handle_api(ApiResponse::Me(Ok(User {
+            id: "bob".into(),
+            ..User::default()
+        })));
+        assert_eq!(app.last_account.as_deref(), Some("bob"));
+        assert!(
+            app.library.playlists.get().is_none(),
+            "another account's cached list does not stay on screen"
+        );
     }
 
     /// The streaming session does not always name a playlist's owner. The

@@ -876,11 +876,15 @@ pub enum Command {
     FriendActivity(u64),
     LoadLikedSongsCache {
         generation: u64,
+        /// The account whose cache to read before `/me` has answered.
+        account: Option<String>,
     },
     StoreLikedSongsCache(crate::liked::Cache),
     /// Read the verified account's last playlist list and Home shelves.
     LoadAccountCaches {
         generation: u64,
+        /// The account whose caches to read before `/me` has answered.
+        account: Option<String>,
     },
     StoreLibraryCache(crate::account_cache::Cache<Vec<Playlist>>),
     StoreHomeCache(crate::account_cache::Cache<crate::model::HomeSnapshot>),
@@ -2685,9 +2689,16 @@ impl Worker {
                 Command::UserNames(ids) => self.fetch_user_names(ids),
                 Command::PlayCounts(uri) => self.fetch_play_counts(uri),
                 Command::FriendActivity(generation) => self.fetch_friend_activity(generation),
-                Command::LoadLikedSongsCache { generation } => {
-                    if let Some(account) = self.api.account() {
-                        let account_id = account.as_str().to_string();
+                Command::LoadLikedSongsCache {
+                    generation,
+                    account,
+                } => {
+                    let account = account.or_else(|| {
+                        self.api
+                            .account()
+                            .map(|account| account.as_str().to_string())
+                    });
+                    if let Some(account_id) = account {
                         let path = self.dirs.liked_songs_cache_file(&account_id);
                         let events = self.events.clone();
                         let waker = self.waker.clone();
@@ -2714,9 +2725,16 @@ impl Worker {
                         }
                     }
                 }
-                Command::LoadAccountCaches { generation } => {
-                    if let Some(account) = self.api.account() {
-                        let account_id = account.as_str().to_string();
+                Command::LoadAccountCaches {
+                    generation,
+                    account,
+                } => {
+                    let account = account.or_else(|| {
+                        self.api
+                            .account()
+                            .map(|account| account.as_str().to_string())
+                    });
+                    if let Some(account_id) = account {
                         let library = self.dirs.library_cache_file(&account_id);
                         let home = self.dirs.home_cache_file(&account_id);
                         let events = self.events.clone();

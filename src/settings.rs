@@ -1835,6 +1835,10 @@ pub struct CachedRootlist {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SessionState {
+    /// The account last verified, so its cached library can show before
+    /// `/me` answers on the next start.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_account: Option<String>,
     /// Recent explicit output choices, scoped to the verified Spotify account.
     pub device_history: crate::device_history::DeviceHistory,
     pub last_page: Option<String>,
