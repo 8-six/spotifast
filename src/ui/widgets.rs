@@ -502,7 +502,7 @@ fn menu_item_response(
 ) -> (egui::Response, bool) {
     let width = ui.available_width();
     let (rect, response) = ui.allocate_exact_size(
-        vec2(width, 28.0),
+        vec2(width, MENU_ROW_HEIGHT),
         if enabled {
             Sense::click()
         } else {
@@ -512,38 +512,41 @@ fn menu_item_response(
     if ui.is_rect_visible(rect) {
         if (response.hovered() || highlighted) && enabled {
             ui.painter()
-                .rect_filled(rect, CornerRadius::same(6), palette.surface_hover);
+                .rect_filled(rect, CornerRadius::same(8), palette.surface_hover);
         }
         let color = if enabled { palette.text } else { palette.dim };
-        let mut x = rect.left() + 10.0;
+        let mut x = rect.left() + MENU_PADDING;
         if let Some(icon) = icon {
             let icon_rect =
-                Rect::from_center_size(pos2(x + 8.0, rect.center().y), Vec2::splat(16.0));
+                Rect::from_center_size(pos2(x + 9.0, rect.center().y), Vec2::splat(18.0));
             icon.image(
                 if enabled {
                     palette.secondary
                 } else {
                     palette.dim
                 },
-                16.0,
+                18.0,
             )
             .paint_at(ui, icon_rect);
-            x += 26.0;
+            x += 30.0;
         }
         // A playlist can be named a paragraph; the label ends at the menu's
         // edge instead of running past it.
         let galley = crate::bidi::layout(
             ui.painter(),
             label,
-            theme::regular(13.5),
+            theme::regular(14.0),
             color,
-            (rect.right() - 10.0 - x).max(0.0),
+            (rect.right() - MENU_PADDING - x).max(0.0),
             1,
             Some(crate::bidi::ELLIPSIS),
         );
         let text_rect = Rect::from_min_max(
             pos2(x, rect.center().y - galley.size().y / 2.0),
-            pos2(rect.right() - 10.0, rect.center().y + galley.size().y / 2.0),
+            pos2(
+                rect.right() - MENU_PADDING,
+                rect.center().y + galley.size().y / 2.0,
+            ),
         );
         ui.painter()
             .galley(crate::bidi::galley_pos(text_rect, &galley), galley, color);
@@ -607,7 +610,7 @@ fn submenu<R>(
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> Option<egui::InnerResponse<R>> {
     let width = ui.available_width();
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 28.0), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(width, MENU_ROW_HEIGHT), Sense::click());
     let is_in_menu = egui::menu::is_in_menu(ui);
     let submenu_id = egui::menu::SubMenu::id_from_widget_id(response.id);
     let is_open = if is_in_menu {
@@ -619,21 +622,21 @@ fn submenu<R>(
     if ui.is_rect_visible(rect) {
         if response.hovered() || is_open {
             ui.painter()
-                .rect_filled(rect, CornerRadius::same(6), palette.surface_hover);
+                .rect_filled(rect, CornerRadius::same(8), palette.surface_hover);
         }
         let color = palette.text;
-        let mut x = rect.left() + 10.0;
+        let mut x = rect.left() + MENU_PADDING;
         if let Some(icon) = icon {
             let icon_rect =
-                Rect::from_center_size(pos2(x + 8.0, rect.center().y), Vec2::splat(16.0));
-            icon.image(palette.secondary, 16.0).paint_at(ui, icon_rect);
-            x += 26.0;
+                Rect::from_center_size(pos2(x + 9.0, rect.center().y), Vec2::splat(18.0));
+            icon.image(palette.secondary, 18.0).paint_at(ui, icon_rect);
+            x += 30.0;
         }
 
         let arrow_galley = crate::bidi::layout(
             ui.painter(),
             egui::menu::SubMenuButton::RIGHT_ARROW,
-            theme::regular(11.0),
+            theme::regular(12.0),
             palette.secondary,
             16.0,
             1,
@@ -642,11 +645,11 @@ fn submenu<R>(
         let arrow_width = arrow_galley.size().x;
         let arrow_rect = Rect::from_min_max(
             pos2(
-                rect.right() - 10.0 - arrow_width,
+                rect.right() - MENU_PADDING - arrow_width,
                 rect.center().y - arrow_galley.size().y / 2.0,
             ),
             pos2(
-                rect.right() - 10.0,
+                rect.right() - MENU_PADDING,
                 rect.center().y + arrow_galley.size().y / 2.0,
             ),
         );
@@ -656,11 +659,11 @@ fn submenu<R>(
             palette.secondary,
         );
 
-        let max_text_width = (rect.right() - 10.0 - arrow_width - 6.0 - x).max(0.0);
+        let max_text_width = (rect.right() - MENU_PADDING - arrow_width - 6.0 - x).max(0.0);
         let galley = crate::bidi::layout(
             ui.painter(),
             label,
-            theme::regular(13.5),
+            theme::regular(14.0),
             color,
             max_text_width,
             1,
@@ -669,7 +672,7 @@ fn submenu<R>(
         let text_rect = Rect::from_min_max(
             pos2(x, rect.center().y - galley.size().y / 2.0),
             pos2(
-                rect.right() - 10.0 - arrow_width - 6.0,
+                rect.right() - MENU_PADDING - arrow_width - 6.0,
                 rect.center().y + galley.size().y / 2.0,
             ),
         );
@@ -701,21 +704,25 @@ fn submenu<R>(
 }
 
 pub fn menu_separator(ui: &mut Ui, palette: &Palette) {
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 9.0), Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 13.0), Sense::hover());
     ui.painter().hline(
-        rect.x_range().shrink(6.0),
+        rect.x_range().shrink(8.0),
         rect.center().y,
         Stroke::new(1.0, palette.outline),
     );
 }
 
 /// The frame every popup menu uses.
+/// The height of one row in a popup menu, and the room at its edges.
+const MENU_ROW_HEIGHT: f32 = 32.0;
+const MENU_PADDING: f32 = 12.0;
+
 pub fn menu_frame(palette: &Palette) -> egui::Frame {
     egui::Frame::new()
         .fill(palette.overlay)
         .stroke(Stroke::new(1.0, palette.outline))
-        .corner_radius(CornerRadius::same(theme::RADIUS))
-        .inner_margin(egui::Margin::same(6))
+        .corner_radius(CornerRadius::same(theme::PANEL_RADIUS as u8))
+        .inner_margin(egui::Margin::same(8))
         .shadow(egui::epaint::Shadow {
             offset: [0, 6],
             blur: 20,
