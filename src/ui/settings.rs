@@ -1198,19 +1198,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             }
             filtered_row(ui, &palette, &needle, &soloist, &soloist_rows[1], |ui| {
                 if app.soloist_key_saved {
-                    ui.horizontal(|ui| {
-                        theme::subtle(
-                            ui,
-                            &palette,
-                            &gettext(locale, "Your API key is saved in the system keychain."),
-                        );
-                        let remove = gettext(locale, "Remove key");
-                        if theme::soft_button(ui, &palette, Some(Icon::Trash), &remove, false)
-                            .clicked()
-                        {
-                            app.actions.push(Action::RemoveSoloistKey);
-                        }
-                    });
+                    let remove = gettext(locale, "Remove key");
+                    if theme::soft_button(ui, &palette, Some(Icon::Trash), &remove, false).clicked()
+                    {
+                        app.actions.push(Action::RemoveSoloistKey);
+                    }
                     return;
                 }
                 ui.horizontal(|ui| {
